@@ -17,28 +17,27 @@ console.log('')
 let command, args
 
 if (isWindows) {
-  // Windows: 使用 PowerShell 运行
-  const scriptPath = path.join(scriptsDir, 'setup-mcp.ps1')
-  command = 'powershell'
-  args = ['-ExecutionPolicy', 'Bypass', '-File', scriptPath]
+    // Windows: 使用 PowerShell 运行
+    const scriptPath = path.join(scriptsDir, 'setup-mcp.ps1')
+    command = 'powershell'
+    args = ['-ExecutionPolicy', 'Bypass', '-File', scriptPath]
 } else {
-  // Linux/macOS: 使用 bash 运行
-  const scriptPath = path.join(scriptsDir, 'setup-mcp.sh')
-  command = 'bash'
-  args = [scriptPath]
+    // Linux/macOS: 使用 bash 运行
+    const scriptPath = path.join(scriptsDir, 'setup-mcp.sh')
+    command = 'bash'
+    args = [scriptPath]
 }
 
 const child = spawn(command, args, {
-  stdio: 'inherit',
-  shell: false
+    stdio: 'inherit',
+    shell: false,
 })
 
 child.on('error', (err) => {
-  console.error('运行安装脚本失败:', err.message)
-  process.exit(1)
+    console.error('运行安装脚本失败:', err.message)
+    process.exit(1)
 })
 
 child.on('close', (code) => {
-  process.exit(code || 0)
+    process.exit(code || 0)
 })
-

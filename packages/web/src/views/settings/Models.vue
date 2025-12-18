@@ -1,668 +1,812 @@
 <template>
-  <div class="setting-page">
-    <div class="page-header">
-      <div>
-        <h2>模型管理</h2>
-        <p class="description">配置 AI 模型，支持任何 OpenAI 兼容的 API 接口。</p>
-      </div>
-      <button class="btn btn-primary" @click="showAddModal">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-        添加模型
-      </button>
-    </div>
-
-    <div class="model-list" v-if="store.models.length > 0">
-      <div v-for="model in store.models" :key="model.id" class="model-card">
-        <div class="model-header">
-          <div class="model-info">
-            <span class="model-name">🤖 {{ model.name }}</span>
-            <span class="tag" :class="model.enabled ? 'tag-success' : ''">
-              {{ model.enabled ? '已启用' : '已停用' }}
-            </span>
-          </div>
-          <div class="model-actions">
-            <div
-              class="switch"
-              :class="{ active: model.enabled }"
-              @click="toggleModel(model.id)"
-            ></div>
-            <button class="btn btn-ghost btn-icon" @click="editModel(model)" title="编辑">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-            </button>
-            <button class="btn btn-ghost btn-icon" @click="deleteModel(model.id)" title="删除">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="model-details">
-          <div class="detail-row">
-            <span class="detail-label">模型</span>
-            <span>{{ model.model }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Base URL</span>
-            <span class="truncate">{{ model.baseURL }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-else class="empty">
-      <div class="empty-icon">🤖</div>
-      <p class="empty-text">暂无模型配置</p>
-      <p class="empty-hint">点击上方「添加模型」按钮开始配置</p>
-    </div>
-
-    <!-- 添加/编辑模态框 -->
-    <div v-if="modalVisible" class="modal-overlay" @click.self="closeModal">
-      <div class="modal modal-lg">
-        <div class="modal-header">
-          <span class="modal-title">{{ editingModel ? '编辑模型' : '添加模型' }}</span>
-          <button class="btn btn-ghost btn-icon" @click="closeModal">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">Base URL *</label>
-            <input 
-              type="text" 
-              class="input" 
-              v-model="form.baseURL" 
-              placeholder="如: https://api.openai.com/v1"
-              @blur="onBaseURLChange"
-            />
-            <p class="form-hint">填写 OpenAI 兼容的 API 地址（代理地址）</p>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <div class="input-row">
-              <input 
-                type="text" 
-                class="input" 
-                v-model="form.apiKey" 
-                placeholder="sk-..."
-              />
-              <button 
-                class="btn btn-secondary" 
-                @click="fetchModels"
-                :disabled="fetchingModels || !form.baseURL"
-              >
-                <svg v-if="fetchingModels" class="spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="2" x2="12" y2="6"></line>
-                  <line x1="12" y1="18" x2="12" y2="22"></line>
-                  <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
-                  <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
-                  <line x1="2" y1="12" x2="6" y2="12"></line>
-                  <line x1="18" y1="12" x2="22" y2="12"></line>
-                  <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
-                  <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+    <div class="setting-page">
+        <div class="page-header">
+            <div>
+                <h2>模型渠道</h2>
+                <p class="description">配置 AI 模型渠道，一个渠道可包含多个模型。</p>
+            </div>
+            <button class="btn btn-primary" @click="showAddChannelModal">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
-                {{ fetchingModels ? '获取中...' : '获取模型列表' }}
-              </button>
-            </div>
-          </div>
+                新增渠道
+            </button>
+        </div>
 
-          <!-- 模型列表选择（远程获取到时显示） -->
-          <div v-if="availableModels.length > 0" class="form-group">
-            <div class="form-label-row">
-              <label class="form-label">{{ editingModel ? '切换模型' : '选择模型' }}</label>
-              <div class="select-actions" v-if="!editingModel">
-                <button class="btn btn-sm btn-ghost" @click="selectAllModels">全选</button>
-                <button class="btn btn-sm btn-ghost" @click="clearSelectedModels">清空</button>
-              </div>
-            </div>
-            
-            <!-- 编辑模式：单选 -->
-            <div v-if="editingModel" class="model-select-list">
-              <label 
-                v-for="model in availableModels" 
-                :key="model" 
-                class="model-radio"
-                :class="{ selected: form.model === model }"
-              >
-                <input 
-                  type="radio" 
-                  :value="model"
-                  v-model="form.model"
-                  @change="onModelSelect(model)"
-                />
-                <span class="model-id">{{ model }}</span>
-              </label>
-            </div>
-            
-            <!-- 新增模式：多选 -->
-            <div v-else class="model-select-list">
-              <label 
-                v-for="model in availableModels" 
-                :key="model" 
-                class="model-checkbox"
-                :class="{ selected: selectedModels.has(model) }"
-              >
-                <input 
-                  type="checkbox" 
-                  :checked="selectedModels.has(model)"
-                  @change="toggleModelSelection(model)"
-                />
-                <span class="model-id">{{ model }}</span>
-              </label>
-            </div>
-            <p class="form-hint" v-if="!editingModel">已选择 {{ selectedModels.size }} 个模型</p>
-          </div>
-
-          <!-- 无法获取模型列表时或编辑模式，手动输入 -->
-          <template v-if="!availableModels.length">
-            <!-- 编辑模式 -->
-            <template v-if="editingModel">
-              <div class="form-group">
-                <label class="form-label">名称 *</label>
-                <input type="text" class="input" v-model="form.name" placeholder="如: GPT-4o" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">模型 *</label>
-                <input type="text" class="input" v-model="form.model" placeholder="如: gpt-4o" />
-              </div>
-            </template>
-            
-            <!-- 新增模式 -->
-            <template v-else>
-              <div class="form-group">
-                <label class="form-label">模型名称 *</label>
-                <div class="form-label-row" style="margin-bottom: 8px;">
-                  <span class="form-hint" style="margin: 0;">手动输入模型名称，多个模型用逗号或换行分隔</span>
+        <!-- 渠道列表 -->
+        <div class="channel-list" v-if="channels.length > 0">
+            <div v-for="channel in channels" :key="channel.id" class="channel-card">
+                <div class="channel-header">
+                    <div class="channel-info">
+                        <span class="channel-name">{{ channel.name }}</span>
+                        <span class="channel-model-count">{{ channel.models.length }} 个模型</span>
+                        <span class="tag" :class="channel.enabled ? 'tag-success' : ''">
+                            {{ channel.enabled ? '已启用' : '已停用' }}
+                        </span>
+                    </div>
+                    <div class="channel-actions">
+                        <div class="switch" :class="{ active: channel.enabled }" @click="toggleChannel(channel)"></div>
+                        <button class="btn btn-ghost btn-icon" @click="editChannel(channel)" title="编辑">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                        <button class="btn btn-ghost btn-icon" @click="deleteChannel(channel)" title="删除">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path
+                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                                ></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
-                <textarea 
-                  class="textarea" 
-                  v-model="form.manualModels" 
-                  placeholder="gpt-4o, gpt-4o-mini, gpt-3.5-turbo&#10;或每行一个模型名称"
-                  rows="4"
-                ></textarea>
-              </div>
-            </template>
-          </template>
-
-          <!-- 编辑模式下显示名称输入（选择模型列表时） -->
-          <div v-if="editingModel && availableModels.length > 0" class="form-group">
-            <label class="form-label">显示名称</label>
-            <input type="text" class="input" v-model="form.name" placeholder="如: GPT-4o" />
-            <p class="form-hint">留空则使用模型 ID 作为名称</p>
-          </div>
-
-          <!-- 名称前缀（仅新增模式） -->
-          <div v-if="!editingModel" class="form-group">
-            <label class="form-label">名称前缀（可选）</label>
-            <input type="text" class="input" v-model="form.namePrefix" placeholder="如: OpenAI - " />
-            <p class="form-hint">为批量添加的模型名称添加前缀，便于区分</p>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">启用</label>
-            <div
-              class="switch"
-              :class="{ active: form.enabled }"
-              @click="form.enabled = !form.enabled"
-            ></div>
-          </div>
+                <div class="channel-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Base URL</span>
+                        <span class="detail-value truncate">{{ channel.baseURL }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">模型</span>
+                        <div class="model-tags">
+                            <span v-for="model in channel.models.slice(0, 5)" :key="model" class="model-tag">
+                                {{ model }}
+                            </span>
+                            <span v-if="channel.models.length > 5" class="model-tag more">
+                                +{{ channel.models.length - 5 }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="saveModel" :disabled="saving">
-            {{ saving ? '保存中...' : getSubmitButtonText() }}
-          </button>
+
+        <!-- 空状态 -->
+        <div v-else class="empty">
+            <div class="empty-icon">🔗</div>
+            <p class="empty-text">暂无模型渠道</p>
+            <p class="empty-hint">点击「新增渠道」配置 AI 模型</p>
         </div>
-      </div>
+
+        <!-- 添加/编辑渠道模态框 -->
+        <div v-if="modalVisible" class="modal-overlay" @click.self="closeModal">
+            <div class="modal modal-lg">
+                <div class="modal-header">
+                    <span class="modal-title">{{ editingChannel ? '编辑渠道' : '新增渠道' }}</span>
+                    <button class="btn btn-ghost btn-icon" @click="closeModal">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">渠道名称 *</label>
+                        <input
+                            type="text"
+                            class="input"
+                            v-model="form.name"
+                            placeholder="如: OpenAI、Claude、DeepSeek"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Base URL *</label>
+                        <input
+                            type="text"
+                            class="input"
+                            v-model="form.baseURL"
+                            placeholder="如: https://api.openai.com/v1"
+                        />
+                        <p class="form-hint">填写 OpenAI 兼容的 API 地址</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <div class="input-row">
+                            <input type="text" class="input" v-model="form.apiKey" placeholder="sk-..." />
+                            <button
+                                class="btn btn-secondary"
+                                @click="fetchModels"
+                                :disabled="fetchingModels || !form.baseURL"
+                            >
+                                <svg
+                                    v-if="fetchingModels"
+                                    class="spin"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                                </svg>
+                                {{ fetchingModels ? '获取中...' : '获取模型' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 模型选择 -->
+                    <div class="form-group">
+                        <div class="form-label-row">
+                            <label class="form-label">模型列表 *</label>
+                            <div class="select-actions">
+                                <button
+                                    v-if="availableModels.length > 0"
+                                    class="btn btn-sm btn-ghost"
+                                    @click="selectAllModels"
+                                >
+                                    全选
+                                </button>
+                                <button
+                                    v-if="selectedModels.size > 0"
+                                    class="btn btn-sm btn-ghost btn-danger"
+                                    @click="clearSelectedModels"
+                                >
+                                    清空模型
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 已选择的模型标签 -->
+                        <div class="selected-models" v-if="selectedModels.size > 0">
+                            <div v-for="model in selectedModels" :key="model" class="selected-model-tag">
+                                <span>{{ model }}</span>
+                                <button class="remove-btn" @click="removeModel(model)">×</button>
+                            </div>
+                        </div>
+
+                        <!-- 远程模型列表（可多选） -->
+                        <div v-if="availableModels.length > 0" class="model-select-list">
+                            <label
+                                v-for="model in availableModels"
+                                :key="model"
+                                class="model-checkbox"
+                                :class="{ selected: selectedModels.has(model) }"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :checked="selectedModels.has(model)"
+                                    @change="toggleModelSelection(model)"
+                                />
+                                <span class="model-id">{{ model }}</span>
+                            </label>
+                        </div>
+
+                        <!-- 手动输入（无法获取时） -->
+                        <div v-else class="manual-input-section">
+                            <p class="form-hint">输入模型名称后按 Enter 添加，或用逗号分隔多个模型</p>
+                            <div class="input-row">
+                                <input
+                                    type="text"
+                                    class="input"
+                                    v-model="manualModelInput"
+                                    placeholder="gpt-4o, gpt-4o-mini"
+                                    @keydown.enter.prevent="addManualModels"
+                                />
+                                <button class="btn btn-secondary" @click="addManualModels">添加</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">启用渠道</label>
+                        <div
+                            class="switch"
+                            :class="{ active: form.enabled }"
+                            @click="form.enabled = !form.enabled"
+                        ></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @click="closeModal">取消</button>
+                    <button class="btn btn-primary" @click="saveChannel" :disabled="saving || !canSave">
+                        {{ saving ? '保存中...' : editingChannel ? '保存' : '创建渠道' }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { api } from '@/api'
 import { toast } from '@/composables/useToast'
-import type { Model } from '@/api/types'
+import type { ModelChannel } from '@/api/types'
 
 const store = useAppStore()
 const modalVisible = ref(false)
-const editingModel = ref<Model | null>(null)
+const editingChannel = ref<ModelChannel | null>(null)
 const saving = ref(false)
 const fetchingModels = ref(false)
 const availableModels = ref<string[]>([])
 const selectedModels = ref(new Set<string>())
+const manualModelInput = ref('')
+const channels = ref<ModelChannel[]>([])
 
 const form = reactive({
-  name: '',
-  model: '',
-  baseURL: '',
-  apiKey: '',
-  enabled: true,
-  manualModels: '',
-  namePrefix: '',
+    name: '',
+    baseURL: '',
+    apiKey: '',
+    enabled: true,
 })
 
-function showAddModal() {
-  editingModel.value = null
-  form.name = ''
-  form.model = ''
-  form.baseURL = ''
-  form.apiKey = ''
-  form.enabled = true
-  form.manualModels = ''
-  form.namePrefix = ''
-  availableModels.value = []
-  selectedModels.value.clear()
-  modalVisible.value = true
+const canSave = computed(() => {
+    return form.name.trim() && form.baseURL.trim() && selectedModels.value.size > 0
+})
+
+onMounted(() => {
+    loadChannels()
+})
+
+// 从现有模型数据中构建渠道列表
+async function loadChannels() {
+    await store.fetchModels()
+
+    // 按 baseURL 分组
+    const channelMap = new Map<string, ModelChannel>()
+
+    for (const model of store.models) {
+        const key = `${model.baseURL}|${model.apiKey}`
+
+        if (!channelMap.has(key)) {
+            channelMap.set(key, {
+                id: model.channelId || model.id,
+                name: getChannelName(model.baseURL),
+                baseURL: model.baseURL,
+                apiKey: model.apiKey,
+                models: [],
+                enabled: model.enabled,
+                createdAt: Date.now(),
+            })
+        }
+
+        const channel = channelMap.get(key)!
+        channel.models.push(model.model)
+        // 只要有一个模型启用，渠道就启用
+        if (model.enabled) {
+            channel.enabled = true
+        }
+    }
+
+    channels.value = Array.from(channelMap.values())
 }
 
-function editModel(model: Model) {
-  editingModel.value = model
-  form.name = model.name
-  form.model = model.model
-  form.baseURL = model.baseURL
-  form.apiKey = model.apiKey || ''
-  form.enabled = model.enabled
-  form.manualModels = ''
-  form.namePrefix = ''
-  availableModels.value = []
-  selectedModels.value.clear()
-  modalVisible.value = true
+function getChannelName(baseURL: string): string {
+    if (baseURL.includes('openai')) return 'OpenAI'
+    if (baseURL.includes('anthropic')) return 'Claude'
+    if (baseURL.includes('deepseek')) return 'DeepSeek'
+    if (baseURL.includes('moonshot')) return 'Moonshot'
+    if (baseURL.includes('zhipu')) return '智谱 AI'
+    try {
+        const url = new URL(baseURL)
+        return url.hostname
+    } catch {
+        return '自定义渠道'
+    }
+}
+
+function showAddChannelModal() {
+    editingChannel.value = null
+    form.name = ''
+    form.baseURL = ''
+    form.apiKey = ''
+    form.enabled = true
+    availableModels.value = []
+    selectedModels.value.clear()
+    manualModelInput.value = ''
+    modalVisible.value = true
+}
+
+function editChannel(channel: ModelChannel) {
+    editingChannel.value = channel
+    form.name = channel.name
+    form.baseURL = channel.baseURL
+    form.apiKey = channel.apiKey
+    form.enabled = channel.enabled
+    availableModels.value = []
+    selectedModels.value = new Set(channel.models)
+    manualModelInput.value = ''
+    modalVisible.value = true
 }
 
 function closeModal() {
-  modalVisible.value = false
-}
-
-function onBaseURLChange() {
-  // 当 URL 变化时清空模型列表
-  availableModels.value = []
-  selectedModels.value.clear()
-}
-
-function onModelSelect(model: string) {
-  // 编辑模式下选择模型时，如果名称是旧模型名，则更新为新模型名
-  if (editingModel.value && (form.name === editingModel.value.model || form.name === form.model)) {
-    form.name = model
-  }
-  form.model = model
+    modalVisible.value = false
 }
 
 async function fetchModels() {
-  if (!form.baseURL) {
-    toast.warning('请先填写 Base URL')
-    return
-  }
-
-  fetchingModels.value = true
-  availableModels.value = []
-  selectedModels.value.clear()
-
-  try {
-    const result = await api.fetchRemoteModels(form.baseURL, form.apiKey)
-    
-    if (result.models && result.models.length > 0) {
-      availableModels.value = result.models.sort()
-      
-      if (editingModel.value) {
-        // 编辑模式：如果当前模型在列表中，保持选中
-        if (!result.models.includes(form.model)) {
-          // 当前模型不在列表中，提示用户
-          toast.info('当前模型不在远程列表中，可以选择新模型')
-        }
-      } else {
-        // 新增模式：默认选中常用模型
-        const commonModels = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo', 'claude-3-5-sonnet-20241022']
-        for (const m of result.models) {
-          if (commonModels.some(c => m.toLowerCase().includes(c.toLowerCase()))) {
-            selectedModels.value.add(m)
-          }
-        }
-      }
-      toast.success(`获取到 ${result.models.length} 个模型`)
-    } else {
-      toast.warning('未获取到模型列表，请手动输入模型名称')
+    if (!form.baseURL) {
+        toast.warning('请先填写 Base URL')
+        return
     }
-  } catch (error: any) {
-    console.error('获取模型列表失败:', error)
-    toast.error(`获取模型列表失败: ${error.response?.data?.error || error.message || '未知错误'}`)
-  } finally {
-    fetchingModels.value = false
-  }
+
+    fetchingModels.value = true
+
+    try {
+        const result = await api.fetchRemoteModels(form.baseURL, form.apiKey)
+
+        if (result.models && result.models.length > 0) {
+            availableModels.value = result.models.sort()
+
+            // 如果是编辑模式，保持已选模型
+            if (!editingChannel.value) {
+                // 新增模式：自动选择常用模型
+                const commonModels = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo', 'claude']
+                for (const m of result.models) {
+                    if (commonModels.some((c) => m.toLowerCase().includes(c.toLowerCase()))) {
+                        selectedModels.value.add(m)
+                    }
+                }
+            }
+
+            toast.success(`获取到 ${result.models.length} 个模型`)
+        } else {
+            toast.warning('未获取到模型列表，请手动输入')
+        }
+    } catch (error: any) {
+        toast.error(`获取失败: ${error.message || '未知错误'}`)
+    } finally {
+        fetchingModels.value = false
+    }
 }
 
 function toggleModelSelection(model: string) {
-  if (selectedModels.value.has(model)) {
-    selectedModels.value.delete(model)
-  } else {
-    selectedModels.value.add(model)
-  }
+    if (selectedModels.value.has(model)) {
+        selectedModels.value.delete(model)
+    } else {
+        selectedModels.value.add(model)
+    }
 }
 
 function selectAllModels() {
-  for (const model of availableModels.value) {
-    selectedModels.value.add(model)
-  }
+    for (const model of availableModels.value) {
+        selectedModels.value.add(model)
+    }
 }
 
 function clearSelectedModels() {
-  selectedModels.value.clear()
+    selectedModels.value.clear()
 }
 
-function getModelsToAdd(): string[] {
-  if (availableModels.value.length > 0) {
-    return Array.from(selectedModels.value)
-  } else {
-    // 从手动输入中解析模型名称
-    return form.manualModels
-      .split(/[,\n]/)
-      .map(m => m.trim())
-      .filter(m => m.length > 0)
-  }
+function removeModel(model: string) {
+    selectedModels.value.delete(model)
 }
 
-function getSubmitButtonText(): string {
-  if (editingModel.value) {
-    return '保存'
-  }
-  const count = getModelsToAdd().length
-  return count > 0 ? `添加 ${count} 个模型` : '添加模型'
-}
+function addManualModels() {
+    const input = manualModelInput.value.trim()
+    if (!input) return
 
-async function saveModel() {
-  // 编辑模式
-  if (editingModel.value) {
-    if (!form.model || !form.baseURL) {
-      toast.warning('请填写必填项')
-      return
+    const models = input
+        .split(/[,，\n]/)
+        .map((m) => m.trim())
+        .filter((m) => m)
+    for (const model of models) {
+        selectedModels.value.add(model)
     }
+    manualModelInput.value = ''
+}
+
+async function saveChannel() {
+    if (!canSave.value) return
 
     saving.value = true
 
     try {
-      await api.updateModel(editingModel.value.id, {
-        name: form.name || form.model,
-        model: form.model,
-        baseURL: form.baseURL,
-        apiKey: form.apiKey,
-        enabled: form.enabled,
-      })
-      toast.success('保存成功')
-      closeModal()
-      store.fetchModels()
-    } catch (error) {
-      toast.error('操作失败')
+        const models = Array.from(selectedModels.value)
+
+        if (editingChannel.value) {
+            // 编辑模式：删除旧模型，创建新模型
+            // 先找出该渠道下的所有模型
+            const oldModels = store.models.filter(
+                (m) => m.baseURL === editingChannel.value!.baseURL && m.apiKey === editingChannel.value!.apiKey
+            )
+
+            // 删除所有旧模型
+            for (const m of oldModels) {
+                await api.deleteModel(m.id)
+            }
+
+            // 创建新模型
+            for (const modelId of models) {
+                await api.createModel({
+                    name: modelId,
+                    model: modelId,
+                    baseURL: form.baseURL,
+                    apiKey: form.apiKey,
+                    enabled: form.enabled,
+                })
+            }
+
+            toast.success('渠道更新成功')
+        } else {
+            // 新增模式：批量创建模型
+            for (const modelId of models) {
+                await api.createModel({
+                    name: modelId,
+                    model: modelId,
+                    baseURL: form.baseURL,
+                    apiKey: form.apiKey,
+                    enabled: form.enabled,
+                })
+            }
+
+            toast.success(`成功创建渠道，包含 ${models.length} 个模型`)
+        }
+
+        closeModal()
+        loadChannels()
+    } catch (error: any) {
+        toast.error(`保存失败: ${error.message || '未知错误'}`)
     } finally {
-      saving.value = false
+        saving.value = false
     }
-    return
-  }
-
-  // 新增模式
-  const modelsToAdd = getModelsToAdd()
-  
-  if (modelsToAdd.length === 0) {
-    toast.warning('请选择或输入至少一个模型')
-    return
-  }
-
-  if (!form.baseURL) {
-    toast.warning('请填写 Base URL')
-    return
-  }
-
-  saving.value = true
-
-  try {
-    // 批量添加模型
-    for (const modelId of modelsToAdd) {
-      const displayName = form.namePrefix ? `${form.namePrefix}${modelId}` : modelId
-      
-      await api.createModel({
-        name: displayName,
-        model: modelId,
-        baseURL: form.baseURL,
-        apiKey: form.apiKey,
-        enabled: true,
-      })
-    }
-
-    closeModal()
-    store.fetchModels()
-    toast.success(`成功添加 ${modelsToAdd.length} 个模型`)
-  } catch (error) {
-    toast.error('操作失败')
-  } finally {
-    saving.value = false
-  }
 }
 
-async function toggleModel(id: string) {
-  try {
-    await api.toggleModel(id)
-    store.fetchModels()
-  } catch (error) {
-    toast.error('操作失败')
-  }
+async function toggleChannel(channel: ModelChannel) {
+    try {
+        // 切换该渠道下所有模型的启用状态
+        const newEnabled = !channel.enabled
+        const channelModels = store.models.filter((m) => m.baseURL === channel.baseURL && m.apiKey === channel.apiKey)
+
+        for (const m of channelModels) {
+            if (m.enabled !== newEnabled) {
+                await api.toggleModel(m.id)
+            }
+        }
+
+        loadChannels()
+    } catch (error) {
+        toast.error('操作失败')
+    }
 }
 
-async function deleteModel(id: string) {
-  if (!confirm('确定要删除这个模型吗？')) return
-  
-  try {
-    await api.deleteModel(id)
-    toast.success('删除成功')
-    store.fetchModels()
-  } catch (error) {
-    toast.error('删除失败')
-  }
+async function deleteChannel(channel: ModelChannel) {
+    if (!confirm(`确定要删除渠道「${channel.name}」及其所有模型吗？`)) return
+
+    try {
+        // 删除该渠道下的所有模型
+        const channelModels = store.models.filter((m) => m.baseURL === channel.baseURL && m.apiKey === channel.apiKey)
+
+        for (const m of channelModels) {
+            await api.deleteModel(m.id)
+        }
+
+        toast.success('渠道删除成功')
+        loadChannels()
+    } catch (error) {
+        toast.error('删除失败')
+    }
 }
 </script>
 
 <style scoped>
 .setting-page {
-  width: 100%;
+    width: 100%;
 }
 
 .page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
 }
 
 .page-header h2 {
-  margin-bottom: 6px;
-  font-size: 22px;
-  font-weight: 600;
+    margin-bottom: 6px;
+    font-size: 22px;
+    font-weight: 600;
 }
 
 .description {
-  color: var(--text-secondary);
-  font-size: 14px;
+    color: var(--text-secondary);
+    font-size: 14px;
 }
 
-.model-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+/* 渠道列表 */
+.channel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
-.model-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 20px;
+.channel-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 20px;
 }
 
-.model-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+.channel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
 }
 
-.model-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.channel-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.model-name {
-  font-size: 16px;
-  font-weight: 600;
+.channel-name {
+    font-size: 16px;
+    font-weight: 600;
 }
 
-.model-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.channel-model-count {
+    font-size: 13px;
+    color: var(--text-tertiary);
 }
 
-.model-details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
+.channel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.channel-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
 }
 
 .detail-row {
-  display: flex;
-  gap: 16px;
-  font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    font-size: 13px;
 }
 
 .detail-label {
-  color: var(--text-tertiary);
-  min-width: 70px;
+    color: var(--text-tertiary);
+    min-width: 70px;
+    flex-shrink: 0;
+}
+
+.detail-value {
+    flex: 1;
+    min-width: 0;
 }
 
 .truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.empty {
-  text-align: center;
-  padding: 80px 20px;
+/* 模型标签 */
+.model-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
-.empty-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
+.model-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    color: var(--text-secondary);
 }
 
-.empty-text {
-  color: var(--text-secondary);
-  font-size: 16px;
-  margin-bottom: 8px;
+.model-tag.more {
+    background: var(--accent-color-light);
+    color: var(--accent-color);
+    border-color: var(--accent-color);
 }
 
-.empty-hint {
-  color: var(--text-tertiary);
-  font-size: 14px;
+/* 已选择的模型 */
+.selected-models {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.selected-model-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px 4px 10px;
+    background: var(--accent-color);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.selected-model-tag .remove-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.selected-model-tag .remove-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 /* 模型选择列表 */
 .form-label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
 }
 
 .form-label-row .form-label {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 .select-actions {
-  display: flex;
-  gap: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+.select-actions .btn-ghost.btn-danger {
+    background: transparent;
+    color: #ef4444;
+}
+
+.select-actions .btn-ghost.btn-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
 }
 
 .input-row {
-  display: flex;
-  gap: 12px;
+    display: flex;
+    gap: 12px;
 }
 
 .input-row .input {
-  flex: 1;
+    flex: 1;
 }
 
 .model-select-list {
-  max-height: 280px;
-  overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
 }
 
-.model-checkbox,
-.model-radio {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--transition-fast);
+.model-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast);
 }
 
-.model-checkbox:hover,
-.model-radio:hover {
-  background: var(--bg-hover);
+.model-checkbox:hover {
+    background: var(--bg-hover);
 }
 
-.model-checkbox.selected,
-.model-radio.selected {
-  background: rgba(16, 163, 127, 0.1);
+.model-checkbox.selected {
+    background: rgba(16, 163, 127, 0.1);
 }
 
-.model-checkbox input,
-.model-radio input {
-  accent-color: var(--accent-color);
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
+.model-checkbox input {
+    accent-color: var(--accent-color);
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
 .model-id {
-  font-family: 'SF Mono', Monaco, Consolas, monospace;
-  font-size: 13px;
-  color: var(--text-primary);
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-size: 12px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
+.manual-input-section {
+    margin-top: 8px;
+}
+
+/* 空状态 */
+.empty {
+    text-align: center;
+    padding: 80px 20px;
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.empty-text {
+    color: var(--text-secondary);
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.empty-hint {
+    color: var(--text-tertiary);
+    font-size: 14px;
+}
+
+/* 模态框 */
 .modal-lg {
-  max-width: 600px;
+    max-width: 650px;
 }
 
 .spin {
-  animation: spin 1s linear infinite;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 </style>

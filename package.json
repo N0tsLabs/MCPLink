@@ -1,36 +1,40 @@
 {
-  "name": "mcplink-monorepo",
-  "version": "0.0.1",
-  "private": true,
-  "description": "AI Agent 工具调用框架 - 支持 MCP 协议",
-  "scripts": {
-    "dev": "pnpm build:core && pnpm -r --parallel --filter=!@mcplink/core run dev",
-    "dev:core": "pnpm --filter @mcplink/core run dev",
-    "dev:server": "pnpm --filter @mcplink/server run dev",
-    "dev:web": "pnpm --filter @mcplink/web run dev",
-    "build": "pnpm build:core && pnpm -r --filter=!@mcplink/core run build",
-    "build:core": "pnpm --filter @mcplink/core run build",
-    "build:server": "pnpm --filter @mcplink/server run build",
-    "build:web": "pnpm --filter @mcplink/web run build",
-    "typecheck": "pnpm -r run typecheck",
-    "setup:mcp": "node scripts/run-setup.js"
-  },
-  "keywords": [
-    "mcp",
-    "ai",
-    "agent",
-    "llm",
-    "tool-calling"
-  ],
-  "author": "",
-  "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.1",
-    "nodemon": "^3.1.11",
-    "wait-on": "^9.0.3"
-  }
+    "name": "mcplink-monorepo",
+    "version": "0.0.1",
+    "private": true,
+    "description": "AI Agent 工具调用框架 - 支持 MCP 协议",
+    "scripts": {
+        "dev": "pnpm build:core && pnpm -r --parallel --filter=!@mcplink/core run dev",
+        "dev:core": "pnpm --filter @mcplink/core run dev",
+        "dev:server": "pnpm --filter @mcplink/server run dev",
+        "dev:web": "pnpm --filter @mcplink/web run dev",
+        "build": "pnpm build:core && pnpm -r --filter=!@mcplink/core run build",
+        "build:core": "pnpm --filter @mcplink/core run build",
+        "build:server": "pnpm --filter @mcplink/server run build",
+        "build:web": "pnpm --filter @mcplink/web run build",
+        "typecheck": "pnpm -r run typecheck",
+        "setup:mcp": "node scripts/run-setup.js",
+        "format": "prettier --write .",
+        "test": "pnpm --filter @mcplink/core run test",
+        "test:agent": "pnpm --filter @mcplink/core run test:agent"
+    },
+    "keywords": [
+        "mcp",
+        "ai",
+        "agent",
+        "llm",
+        "tool-calling"
+    ],
+    "author": "",
+    "license": "MIT",
+    "engines": {
+        "node": ">=18.0.0",
+        "pnpm": ">=8.0.0"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1",
+        "nodemon": "^3.1.11",
+        "prettier": "^3.7.4",
+        "wait-on": "^9.0.3"
+    }
 }

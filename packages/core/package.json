@@ -1,46 +1,54 @@
 {
-  "name": "@mcplink/core",
-  "version": "0.0.1",
-  "description": "MCPLink 核心 SDK - AI Agent 工具调用框架",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "dev": "tsup --watch --no-clean",
-    "build": "tsup",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "ai": "^4.0.0",
-    "@ai-sdk/openai": "^1.0.0",
-    "@ai-sdk/anthropic": "^1.0.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.6.0",
-    "tsup": "^8.3.0",
-    "@types/node": "^22.0.0"
-  },
-  "keywords": [
-    "mcp",
-    "ai",
-    "agent",
-    "llm",
-    "tool-calling",
-    "openai",
-    "claude"
-  ],
-  "license": "MIT"
+    "name": "@mcplink/core",
+    "version": "0.0.1",
+    "description": "MCPLink 核心 SDK - AI Agent 工具调用框架",
+    "type": "module",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "dev": "tsup --watch --no-clean",
+        "build": "tsup",
+        "typecheck": "tsc --noEmit",
+        "test": "npx tsx test/simple-test.ts",
+        "test:agent": "npx tsx test/prompt-based-agent.test.ts",
+        "test:tool": "npx tsx test/tool-call-test.ts",
+        "test:api": "npx tsx test/api-test.ts",
+        "test:todo": "npx tsx test/todo-test.ts",
+        "test:thinking": "npx tsx test/thinking-test.ts",
+        "test:mock": "npx tsx test/tool-continue-test.ts",
+        "test:frontend": "npx tsx test/frontend-simulate-test.ts"
+    },
+    "dependencies": {
+        "ai": "^4.0.0",
+        "@ai-sdk/openai": "^1.0.0",
+        "@ai-sdk/anthropic": "^1.0.0",
+        "@modelcontextprotocol/sdk": "^1.0.0",
+        "zod": "^3.23.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.6.0",
+        "tsup": "^8.3.0",
+        "@types/node": "^22.0.0",
+        "dotenv": "^16.4.0"
+    },
+    "keywords": [
+        "mcp",
+        "ai",
+        "agent",
+        "llm",
+        "tool-calling",
+        "openai",
+        "claude"
+    ],
+    "license": "MIT"
 }
-

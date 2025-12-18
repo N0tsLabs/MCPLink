@@ -11,9 +11,9 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.use(VueMonacoEditorPlugin, {
-  paths: {
-    vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs'
-  }
+    paths: {
+        vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs',
+    },
 })
 
 app.mount('#app')
