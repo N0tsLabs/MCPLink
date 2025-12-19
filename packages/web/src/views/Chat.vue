@@ -381,11 +381,6 @@
                                     (isGenerating && index === messages.length - 1 && msg.status === 'generating')
                                 "
                                 class="assistant-text"
-                                :ref="
-                                    (el) => {
-                                        if (index === messages.length - 1) streamingTextRef = el as HTMLElement
-                                    }
-                                "
                             >
                                 <template
                                     v-if="!isGenerating || index !== messages.length - 1 || msg.status === 'done'"
@@ -393,7 +388,7 @@
                                     <MarkdownRenderer :content="msg.content" />
                                 </template>
                                 <template v-else>
-                                    <span class="streaming-text"></span>
+                                    <span class="streaming-text">{{ streamingBuffer }}</span>
                                     <span class="cursor">▊</span>
                                 </template>
                             </div>
@@ -608,7 +603,6 @@ interface ChatMessage {
 const store = useAppStore()
 const messagesRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
-const streamingTextRef = ref<HTMLElement | null>(null)
 const streamingThinkingRef = ref<HTMLElement | null>(null)
 const inputMessage = ref('')
 const isGenerating = ref(false)
@@ -623,11 +617,11 @@ let thinkingTimerInterval: number | null = null
 // 当前请求控制器
 let abortController: AbortController | null = null
 
-// 流式文本缓冲
-let streamingBuffer = ''
+// 流式文本缓冲（响应式，直接绑定到模板）
+const streamingBuffer = ref('')
 const streamingThinkingBuffer = ref('')
-let animationFrameId: number | null = null
-let thinkingAnimationFrameId: number | null = null
+// 滚动动画帧 ID
+let scrollAnimationFrameId: number | null = null
 
 // 开始思考计时
 function startThinkingTimer() {
@@ -652,7 +646,7 @@ function hasToolCalls(msg: ChatMessage): boolean {
 
 // 检查消息是否正在流式输出文本
 function isStreamingText(msg: ChatMessage): boolean {
-    return msg.status === 'generating' && streamingBuffer.length > 0
+    return msg.status === 'generating' && streamingBuffer.value.length > 0
 }
 
 // 获取状态显示文本
@@ -958,42 +952,31 @@ function getResultPreview(result: unknown): string {
     return text.length > 50 ? text.slice(0, 50) + '...' : text
 }
 
-// 更新流式文本到 DOM
-function updateStreamingText() {
-    if (streamingTextRef.value) {
-        const textEl = streamingTextRef.value.querySelector('.streaming-text')
-        if (textEl) {
-            textEl.textContent = streamingBuffer
-        }
+// 节流滚动到底部
+function throttledScroll() {
+    if (!scrollAnimationFrameId) {
+        scrollAnimationFrameId = requestAnimationFrame(() => {
+            // 滚动思考内容区域
+            if (streamingThinkingRef.value) {
+                streamingThinkingRef.value.scrollTop = streamingThinkingRef.value.scrollHeight
+            }
+            // 滚动消息区域
+            scrollToBottom()
+            scrollAnimationFrameId = null
+        })
     }
-    scrollToBottom()
-    animationFrameId = null
 }
 
-// 追加流式文本
+// 追加流式文本（响应式，即时更新）
 function appendStreamingText(text: string) {
-    streamingBuffer += text
-    if (!animationFrameId) {
-        animationFrameId = requestAnimationFrame(updateStreamingText)
-    }
+    streamingBuffer.value += text
+    throttledScroll()
 }
 
-// 更新流式思考滚动
-function updateStreamingThinking() {
-    if (streamingThinkingRef.value) {
-        // 滚动思考内容区域到底部
-        streamingThinkingRef.value.scrollTop = streamingThinkingRef.value.scrollHeight
-    }
-    scrollToBottom()
-    thinkingAnimationFrameId = null
-}
-
-// 追加流式思考
+// 追加流式思考（响应式，即时更新）
 function appendStreamingThinking(text: string) {
     streamingThinkingBuffer.value += text
-    if (!thinkingAnimationFrameId) {
-        thinkingAnimationFrameId = requestAnimationFrame(updateStreamingThinking)
-    }
+    throttledScroll()
 }
 
 // 停止生成
@@ -1015,13 +998,13 @@ function stopGeneration() {
                 lastMsg.thinkingDuration = Math.round((Date.now() - lastMsg.thinkingStartTime) / 1000)
             }
         }
-        lastMsg.content = streamingBuffer || lastMsg.content
+        lastMsg.content = streamingBuffer.value || lastMsg.content
         lastMsg.status = 'done'
         forceUpdate()
     }
 
     isGenerating.value = false
-    streamingBuffer = ''
+    streamingBuffer.value = ''
     streamingThinkingBuffer.value = ''
 }
 
@@ -1066,7 +1049,7 @@ async function sendMessage() {
     scrollToBottom()
 
     isGenerating.value = true
-    streamingBuffer = ''
+    streamingBuffer.value = ''
     streamingThinkingBuffer.value = ''
     showToolsPanel.value = false
 
@@ -1290,7 +1273,7 @@ async function sendMessage() {
             console.error('Chat error:', error)
             const aiMsg = getAiMsg()
             if (error.name !== 'AbortError') {
-                aiMsg.content = streamingBuffer || `错误: ${error.message}`
+                aiMsg.content = streamingBuffer.value || `错误: ${error.message}`
                 aiMsg.status = 'done'
                 forceUpdate()
             }
@@ -1302,7 +1285,7 @@ async function sendMessage() {
             const aiMsg = getAiMsg()
 
             // 解析内容中可能残留的 <think> 标签
-            const rawContent = streamingBuffer
+            const rawContent = streamingBuffer.value
             const { thinking: parsedThinking, text: cleanText } = parseThinkTags(rawContent)
 
             // 如果解析出思考内容，合并到已有的思考过程中
@@ -1322,7 +1305,7 @@ async function sendMessage() {
             forceUpdate()
 
             isGenerating.value = false
-            streamingBuffer = ''
+            streamingBuffer.value = ''
             abortController = null
 
             await saveConversation()
@@ -1424,11 +1407,8 @@ onUnmounted(() => {
     if (abortController) {
         abortController.abort()
     }
-    if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId)
-    }
-    if (thinkingAnimationFrameId) {
-        cancelAnimationFrame(thinkingAnimationFrameId)
+    if (scrollAnimationFrameId) {
+        cancelAnimationFrame(scrollAnimationFrameId)
     }
 })
 </script>
