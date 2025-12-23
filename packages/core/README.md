@@ -1,11 +1,29 @@
-# @mcplink/core
+# @n0ts123/mcplink-core
 
-MCPLink 核心 SDK - AI Agent 工具调用框架
+MCPLink 核心 SDK - AI Agent 工具调用框架，让 AI 轻松调用 MCP 工具。
+
+[![npm version](https://img.shields.io/npm/v/@n0ts123/mcplink-core.svg)](https://www.npmjs.com/package/@n0ts123/mcplink-core)
+[![license](https://img.shields.io/npm/l/@n0ts123/mcplink-core.svg)](https://github.com/N0ts/MCPLink/blob/main/LICENSE)
+
+## 特性
+
+- 🚀 **简单易用** - 几行代码即可让 AI 调用 MCP 工具
+- 🔄 **流式响应** - 支持实时流式输出，体验更流畅
+- 🤖 **多模型支持** - OpenAI、Claude、Gemini、DeepSeek、Qwen 等
+- 🛠️ **MCP 协议** - 完整支持 stdio 和 SSE 两种连接方式
+- 📦 **TypeScript & JavaScript** - 同时支持 TS 和 JS 项目
 
 ## 安装
 
 ```bash
-npm install @mcplink/core ai @ai-sdk/openai
+# npm
+npm install @n0ts123/mcplink-core
+
+# pnpm
+pnpm add @n0ts123/mcplink-core
+
+# yarn
+yarn add @n0ts123/mcplink-core
 ```
 
 根据你使用的模型，还需要安装对应的 AI SDK：
@@ -26,10 +44,10 @@ npm install @ai-sdk/anthropic
 
 ## 快速开始
 
-### 最小示例
+### TypeScript 示例
 
 ```typescript
-import { MCPLink } from '@mcplink/core'
+import { MCPLink } from '@n0ts123/mcplink-core'
 import { createOpenAI } from '@ai-sdk/openai'
 
 // 创建模型
@@ -54,10 +72,69 @@ console.log(result.content)
 await agent.close()
 ```
 
+### JavaScript 示例 (ESM)
+
+```javascript
+import { MCPLink } from '@n0ts123/mcplink-core'
+import { createOpenAI } from '@ai-sdk/openai'
+
+// 创建模型
+const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+// 创建 Agent
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  mcpServers: {
+    myTools: {
+      type: 'stdio',
+      command: 'node',
+      args: ['./my-mcp-server.js'],
+    },
+  },
+})
+
+// 初始化并对话
+await agent.initialize()
+const result = await agent.chat('你好')
+console.log(result.content)
+await agent.close()
+```
+
+### JavaScript 示例 (CommonJS)
+
+> ⚠️ 注意：本包是 ES Module，在 CommonJS 环境中需要使用动态 import
+
+```javascript
+async function main() {
+  const { MCPLink } = await import('@n0ts123/mcplink-core')
+  const { createOpenAI } = await import('@ai-sdk/openai')
+
+  const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+  const agent = new MCPLink({
+    model: openai('gpt-4o'),
+    mcpServers: {
+      myTools: {
+        type: 'stdio',
+        command: 'node',
+        args: ['./my-mcp-server.js'],
+      },
+    },
+  })
+
+  await agent.initialize()
+  const result = await agent.chat('你好')
+  console.log(result.content)
+  await agent.close()
+}
+
+main()
+```
+
 ### 流式响应
 
 ```typescript
-import { MCPLink, MCPLinkEventType } from '@mcplink/core'
+import { MCPLink, MCPLinkEventType } from '@n0ts123/mcplink-core'
 
 const agent = new MCPLink({
   model: openai('gpt-4o'),
@@ -333,7 +410,7 @@ await agent.stopMCPServer('myServer')
 如果你只需要使用特定的 Agent 实现：
 
 ```typescript
-import { Agent, PromptBasedAgent, MCPManager } from '@mcplink/core'
+import { Agent, PromptBasedAgent, MCPManager } from '@n0ts123/mcplink-core'
 import { createOpenAI } from '@ai-sdk/openai'
 
 const openai = createOpenAI({ apiKey: '...' })
@@ -373,7 +450,7 @@ await mcpManager.stopAll()
 ### 自定义 MCP 管理器
 
 ```typescript
-import { MCPManager } from '@mcplink/core'
+import { MCPManager } from '@n0ts123/mcplink-core'
 
 const mcpManager = new MCPManager()
 
@@ -413,10 +490,15 @@ import type {
   MCPTool,
   MCPServerStatus,
   ChatResult,
-} from '@mcplink/core'
+} from '@n0ts123/mcplink-core'
 
-import { MCPLinkEventType } from '@mcplink/core'
+import { MCPLinkEventType } from '@n0ts123/mcplink-core'
 ```
+
+## 环境要求
+
+- **Node.js**: >= 18.0.0
+- **模块系统**: ES Module（推荐）或 CommonJS（需使用动态 import）
 
 ## 许可证
 
