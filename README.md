@@ -8,7 +8,14 @@
   <a href="#快速开始">快速开始</a> •
   <a href="#sdk-集成">SDK 集成</a> •
   <a href="#核心功能">核心功能</a> •
-  <a href="#架构设计">架构设计</a>
+  <a href="#架构设计">架构设计</a> •
+  <a href="#web-界面">Web 界面</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Node.js->=18-green" alt="Node.js">
+  <img src="https://img.shields.io/badge/pnpm->=8-blue" alt="pnpm">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
 ---
@@ -21,6 +28,7 @@ MCPLink 是一个完整的 **AI Agent** 解决方案，支持 [MCP (Model Contex
 - 🔧 **自动调用工具** - 连接你的 MCP 服务器，执行业务操作
 - 🔄 **多步任务编排** - 自动拆解复杂任务，逐步执行直到完成
 - 💬 **流式响应输出** - 实时展示思考过程和执行结果
+- 🚀 **并行工具调用** - 同时执行多个独立的工具，提升效率
 
 类似于 Cursor、CherryStudio 的 AI Agent 能力，但专注于**业务场景**集成。
 
@@ -44,6 +52,8 @@ mcplink/
 │   ├── core/      # 🎯 核心 SDK (@mcplink/core)
 │   ├── server/    # 🖥️ 后端服务 (Fastify)
 │   └── web/       # 🌐 前端界面 (Vue 3)
+├── scripts/       # 🔧 辅助脚本
+└── README.md
 ```
 
 ---
@@ -59,7 +69,7 @@ mcplink/
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/mcplink.git
+git clone https://github.com/n0tssss/MCPLink.git
 cd mcplink
 
 # 安装依赖
@@ -73,31 +83,32 @@ pnpm dev
 - 前端界面：http://localhost:5173
 - 后端 API：http://localhost:3000
 
-### 配置
+### 配置步骤
 
 1. 打开前端界面
-2. 进入 **设置 > 模型管理**，添加你的 AI 模型（OpenAI、Gemini、Claude 等）
+2. 进入 **设置 > 模型管理**，添加你的 AI 模型（支持 OpenAI、Gemini、Claude、DeepSeek 等）
 3. 进入 **设置 > MCP 服务器**，添加你的 MCP 工具服务器
-4. 开始对话！
+4. 进入 **设置 > 提示词**，自定义系统提示词（可选）
+5. 开始对话！
 
 ---
 
 ## SDK 集成
 
-MCPLink 的核心能力封装在 `@mcplink/core` 包中，可以独立集成到你的项目。
+MCPLink 的核心能力封装在 `@n0ts123/mcplink-core` 包中，可以独立集成到你的项目。
 
 ### 安装
 
 ```bash
-npm install @mcplink/core ai @ai-sdk/openai
+npm install @n0ts123/mcplink-core ai @ai-sdk/openai
 # 或
-pnpm add @mcplink/core ai @ai-sdk/openai
+pnpm add @n0ts123/mcplink-core ai @ai-sdk/openai
 ```
 
 ### 基础用法
 
 ```typescript
-import { MCPLink } from '@mcplink/core'
+import { MCPLink } from '@n0ts123/mcplink-core'
 import { createOpenAI } from '@ai-sdk/openai'
 
 // 1. 创建 AI 模型
@@ -111,6 +122,7 @@ const agent = new MCPLink({
   model: openai('gpt-4o'),
   systemPrompt: '你是一个智能助手，帮助用户管理订单和产品。',
   maxIterations: 10,
+  parallelToolCalls: true, // 启用并行工具调用
   mcpServers: {
     // MCP 服务器配置
     business: {
@@ -122,6 +134,11 @@ const agent = new MCPLink({
     remote: {
       type: 'sse',
       url: 'http://localhost:8080/mcp',
+    },
+    // 或使用 Streamable HTTP 连接
+    streamable: {
+      type: 'streamable-http',
+      url: 'http://localhost:8080/mcp/stream',
     },
   },
 })
@@ -140,10 +157,14 @@ await agent.close()
 ### 流式响应
 
 ```typescript
-import { MCPLink, MCPLinkEventType } from '@mcplink/core'
+import { MCPLink, MCPLinkEventType } from '@n0ts123/mcplink-core'
 
 for await (const event of agent.chatStream('生成一份报价单')) {
   switch (event.type) {
+    case MCPLinkEventType.ITERATION_START:
+      console.log(`📍 开始第 ${event.data.iteration} 轮迭代`)
+      break
+
     case MCPLinkEventType.THINKING_START:
       console.log('🤔 开始思考...')
       break
@@ -154,10 +175,16 @@ for await (const event of agent.chatStream('生成一份报价单')) {
 
     case MCPLinkEventType.TOOL_CALL_START:
       console.log(`🔧 调用工具: ${event.data.toolName}`)
+      console.log(`   参数: ${JSON.stringify(event.data.toolArgs)}`)
       break
 
     case MCPLinkEventType.TOOL_RESULT:
       console.log(`✅ 工具返回: ${event.data.toolName} (${event.data.duration}ms)`)
+      break
+
+    case MCPLinkEventType.IMMEDIATE_RESULT:
+      // 匹配到即时结果，可用于渲染特殊 UI 组件
+      console.log('🎯 即时结果:', event.data.immediateResult)
       break
 
     case MCPLinkEventType.TEXT_DELTA:
@@ -166,6 +193,7 @@ for await (const event of agent.chatStream('生成一份报价单')) {
 
     case MCPLinkEventType.COMPLETE:
       console.log(`\n⏱️ 总耗时: ${event.data.totalDuration}ms`)
+      console.log(`🔄 迭代次数: ${event.data.totalIterations}`)
       break
   }
 }
@@ -173,26 +201,72 @@ for await (const event of agent.chatStream('生成一份报价单')) {
 
 ### 多模型支持
 
+MCPLink 支持多种 AI 模型，并会自动选择最佳的调用方式：
+
 ```typescript
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createAnthropic } from '@ai-sdk/anthropic'
 
-// OpenAI GPT
+// OpenAI GPT（原生 Function Calling）
 const gpt = createOpenAI({ apiKey: '...' })('gpt-4o')
 
-// Google Gemini
+// Google Gemini（原生 Function Calling）
 const gemini = createGoogleGenerativeAI({ apiKey: '...' })('gemini-1.5-flash')
 
-// Anthropic Claude
+// Anthropic Claude（原生 Function Calling）
 const claude = createAnthropic({ apiKey: '...' })('claude-3-5-sonnet-20241022')
 
-// 兼容 OpenAI 格式的国产模型
+// DeepSeek（Prompt-Based 模式）
 const deepseek = createOpenAI({
   apiKey: '...',
   baseURL: 'https://api.deepseek.com/v1',
 })('deepseek-chat')
+
+// 通义千问（Prompt-Based 模式）
+const qwen = createOpenAI({
+  apiKey: '...',
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+})('qwen-plus')
 ```
+
+### 即时结果匹配
+
+当工具返回特定格式的数据时，可以立即触发 `IMMEDIATE_RESULT` 事件，用于渲染特殊 UI：
+
+```typescript
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 配置即时结果匹配器
+  immediateResultMatchers: [
+    { type: 'card' },           // 匹配 { type: "card", ... }
+    { type: 'product_list' },   // 匹配 { type: "product_list", ... }
+    { format: 'table' },        // 匹配 { format: "table", ... }
+  ],
+  mcpServers: { /* ... */ },
+})
+```
+
+### 思考阶段配置
+
+MCPLink 支持两阶段调用模式，提高复杂任务的准确性：
+
+```typescript
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 启用思考阶段（默认开启）
+  enableThinkingPhase: true,
+  mcpServers: { /* ... */ },
+})
+```
+
+**启用后的流程：**
+1. **思考阶段**：AI 分析需求，输出思考过程，决定调用什么工具
+2. **执行阶段**：根据思考结果执行工具调用
+
+**优点**：
+- 任何模型都能看到思考过程
+- Chain-of-Thought 效应，显著提高复杂任务准确性
 
 ### 历史消息
 
@@ -225,13 +299,40 @@ for await (const event of agent.chatStream('搜索产品', {
 
 | 功能 | 说明 |
 |------|------|
-| 🤖 **多模型支持** | OpenAI、Claude、Gemini、DeepSeek、Qwen 等 |
-| 🔌 **MCP 协议** | 支持 stdio 和 SSE 两种连接方式 |
+| 🤖 **多模型支持** | OpenAI GPT、Claude、Gemini、DeepSeek、Qwen、Llama、Mistral 等 |
+| 🔌 **MCP 协议** | 支持 stdio、SSE、Streamable HTTP 三种连接方式 |
 | 🔄 **Agent 循环** | 自动拆解任务，迭代执行直到完成 |
-| 💭 **思考过程** | 展示 AI 的推理过程，支持 `<think>` 标签 |
+| ⚡ **并行工具调用** | 支持同时执行多个独立的工具调用 |
+| 💭 **思考过程** | 展示 AI 的推理过程，支持 `<think>` 标签和原生 reasoning |
 | 📡 **流式输出** | 实时返回执行进度和结果 |
+| 🎯 **即时结果** | 匹配特定格式工具返回，立即触发事件 |
 | 🛡️ **智能压缩** | 自动压缩历史消息，避免上下文过长 |
 | ⏱️ **超时保护** | 内置超时机制，防止请求卡死 |
+| 🔀 **智能路由** | 根据模型自动选择原生或 Prompt-Based 模式 |
+
+---
+
+## Web 界面
+
+MCPLink 提供了完整的 Web 管理界面：
+
+### 功能模块
+
+| 模块 | 功能 |
+|------|------|
+| 💬 **对话界面** | Markdown 渲染、代码高亮、思考过程展示、工具调用可视化 |
+| 🤖 **模型管理** | 添加/编辑/删除 AI 模型，支持多种 AI 服务商 |
+| 🔧 **MCP 服务器** | 配置 MCP 服务器连接，支持 stdio/SSE/HTTP |
+| 📝 **提示词管理** | 自定义系统提示词，优化 AI 行为 |
+| ⚙️ **服务设置** | 配置后端服务选项、并行调用等 |
+
+### 界面特性
+
+- 📱 响应式设计，支持桌面和移动端
+- 🌙 深色主题，保护眼睛
+- ⚡ 流式渲染，实时显示 AI 响应
+- 🔍 调试面板，查看完整的事件流
+- 📋 一键复制，便捷使用
 
 ---
 
@@ -247,7 +348,7 @@ for await (const event of agent.chatStream('搜索产品', {
 │                        MCPLink                              │
 │  ┌─────────────────┐  ┌─────────────────┐                   │
 │  │  Agent (原生)   │  │ PromptBasedAgent │  ← 自动选择      │
-│  │  GPT/Claude     │  │  Gemini/DeepSeek │                  │
+│  │  GPT/Claude     │  │  DeepSeek/Qwen   │                  │
 │  └─────────────────┘  └─────────────────┘                   │
 │                              │                              │
 │                     ┌────────▼────────┐                     │
@@ -255,6 +356,13 @@ for await (const event of agent.chatStream('搜索产品', {
 │                     └─────────────────┘                     │
 └─────────────────────────────────────────────────────────────┘
                               │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│   stdio 连接    │  │    SSE 连接     │  │ Streamable HTTP │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+          │                   │                   │
+          └───────────────────┼───────────────────┘
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                       MCP Servers                           │
@@ -270,8 +378,13 @@ MCPLink 会根据模型名称自动选择最佳的 Agent 实现：
 
 | 模型类型 | Agent | 说明 |
 |---------|-------|------|
-| GPT-4o, Claude-3 | Agent (原生) | 使用原生 function calling |
-| Gemini Preview, DeepSeek | PromptBasedAgent | 使用 prompt 引导工具调用 |
+| GPT-4o, GPT-4, GPT-3.5 | Agent (原生) | 使用原生 function calling |
+| Claude-3, Claude-3.5 | Agent (原生) | 使用原生 function calling |
+| Gemini Flash/Pro | Agent (原生) | 使用原生 function calling |
+| Mistral, Mixtral | Agent (原生) | 使用原生 function calling |
+| DeepSeek | PromptBasedAgent | 使用 prompt 引导工具调用 |
+| Qwen, 通义千问 | PromptBasedAgent | 使用 prompt 引导工具调用 |
+| Llama, Yi, GLM | PromptBasedAgent | 使用 prompt 引导工具调用 |
 | 未知模型 | PromptBasedAgent | 默认使用更兼容的方式 |
 
 ---
@@ -294,11 +407,46 @@ interface MCPLinkConfig {
   // 最大迭代次数（默认 10）
   maxIterations?: number
 
+  // 是否允许并行工具调用（默认 true）
+  parallelToolCalls?: boolean
+
   // MCP 服务器配置
   mcpServers?: Record<string, MCPServerConfig>
 
   // 强制使用 Prompt-Based 模式
   usePromptBasedTools?: boolean | 'auto'
+
+  // 是否启用思考阶段（默认 true）
+  enableThinkingPhase?: boolean
+
+  // 即时结果匹配器
+  immediateResultMatchers?: Array<Record<string, unknown>>
+}
+```
+
+### MCP 服务器配置
+
+```typescript
+// stdio 模式
+interface MCPServerConfigStdio {
+  type?: 'stdio'
+  command: string
+  args?: string[]
+  env?: Record<string, string>
+}
+
+// SSE 模式
+interface MCPServerConfigSSE {
+  type: 'sse'
+  url: string
+  headers?: Record<string, string>
+}
+
+// Streamable HTTP 模式
+interface MCPServerConfigStreamableHTTP {
+  type: 'streamable-http'
+  url: string
+  headers?: Record<string, string>
 }
 ```
 
@@ -314,6 +462,7 @@ enum MCPLinkEventType {
   THINKING_START = 'thinking_start',
   THINKING_DELTA = 'thinking_delta',
   THINKING_END = 'thinking_end',
+  THINKING_CONTENT = 'thinking_content',
 
   // 文本输出
   TEXT_START = 'text_start',
@@ -322,8 +471,10 @@ enum MCPLinkEventType {
 
   // 工具调用
   TOOL_CALL_START = 'tool_call_start',
+  TOOL_CALL_DELTA = 'tool_call_delta',
   TOOL_EXECUTING = 'tool_executing',
   TOOL_RESULT = 'tool_result',
+  IMMEDIATE_RESULT = 'immediate_result',
 
   // 完成/错误
   COMPLETE = 'complete',
@@ -336,17 +487,29 @@ enum MCPLinkEventType {
 ## 开发
 
 ```bash
-# 开发模式
+# 开发模式（启动所有服务）
 pnpm dev
 
-# 构建
+# 只启动核心包开发
+pnpm dev:core
+
+# 只启动后端服务
+pnpm dev:server
+
+# 只启动前端服务
+pnpm dev:web
+
+# 构建所有包
 pnpm build
 
-# 只构建 core 包
+# 只构建核心包
 pnpm build:core
 
 # 类型检查
 pnpm typecheck
+
+# 运行测试
+pnpm test
 ```
 
 ---
@@ -362,3 +525,6 @@ MIT License
 - [MCP 协议规范](https://modelcontextprotocol.io/)
 - [Vercel AI SDK](https://sdk.vercel.ai/)
 - [MCP 官方服务器列表](https://github.com/modelcontextprotocol/servers)
+- [GitHub 仓库](https://github.com/n0tssss/MCPLink)
+- [npm 包](https://www.npmjs.com/package/@n0ts123/mcplink-core)
+- [问题反馈](https://github.com/n0tssss/MCPLink/issues)

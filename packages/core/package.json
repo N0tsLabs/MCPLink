@@ -1,6 +1,6 @@
 {
     "name": "@n0ts123/mcplink-core",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "MCPLink 核心 SDK - AI Agent 工具调用框架",
     "type": "module",
     "main": "./dist/index.js",
@@ -52,14 +52,14 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/N0ts/MCPLink.git",
+        "url": "https://github.com/n0tssss/MCPLink.git",
         "directory": "packages/core"
     },
-    "homepage": "https://github.com/N0ts/MCPLink#readme",
+    "homepage": "https://github.com/n0tssss/MCPLink#readme",
     "bugs": {
-        "url": "https://github.com/N0ts/MCPLink/issues"
+        "url": "https://github.com/n0tssss/MCPLink/issues"
     },
-    "author": "N0ts",
+    "author": "n0tssss",
     "publishConfig": {
         "access": "public"
     }
