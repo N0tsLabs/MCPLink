@@ -1368,7 +1368,7 @@ async function sendMessage() {
                     break
 
                 case 'tool_call_start': {
-                    console.log('[SSE] Tool call start:', event.data.toolName)
+                    console.log('[SSE] Tool call start:', event.data.toolName, 'toolCallId:', event.data.toolCallId)
                     aiMsg.status = 'calling_tool'
                     const toolCall: ToolCallRecord = {
                         id: event.data.toolCallId || `tool-${Date.now()}`,

@@ -15,8 +15,13 @@ import {
  * 默认用户提示词
  * 这只是用户自定义的部分，核心工具调用逻辑已内置到代码中
  */
-export const DEFAULT_SYSTEM_PROMPT = `你是一个智能助手。
-回复要求：简洁直观，不要长篇大论。用列表或表格呈现关键信息。`
+export const DEFAULT_SYSTEM_PROMPT = `你是一个专业、友好的智能助手。
+
+## 回复要求
+- 简洁清晰，重点突出
+- 用列表呈现关键信息
+- 语气礼貌自然，像专业助手
+- 有结论时直接给出，需要补充信息时简单询问`
 
 /**
  * Agent 引擎
@@ -79,17 +84,17 @@ export class Agent {
     /**
      * 思考阶段的系统提示词
      */
-    private readonly THINKING_PHASE_PROMPT = `简要分析用户请求，决定调用什么工具。
+    private readonly THINKING_PHASE_PROMPT = `你正在思考如何帮助用户。请用自然语言分析：
 
-## 输出格式（严格遵守，2-3句话）
-1. 用户需求：xxx
-2. 计划：调用 xxx 工具查询 xxx
+1. 用户想要什么？
+2. 我目前掌握了哪些信息？
+3. 还需要做什么才能回答用户？
 
-## 原则
-- 先获取信息再判断，不要空口分析
-- 有相关工具就调用，不要求完全匹配
-- 不要输出工具参数的 JSON
-- 不要长篇大论`
+要求：
+- 像内心独白一样自然表达
+- 体现你认真分析了问题
+- 说清楚接下来的计划
+- 不要输出给用户看的正式回复（如产品列表、结论等）"`
 
     /**
      * 检查工具返回结果是否匹配即时结果匹配器
@@ -457,12 +462,12 @@ export class Agent {
                     data: {},
                 }
 
-                // 构建思考阶段的消息
+                // 构建思考阶段的消息（使用独立提示词，不混入用户的回复要求）
                 const toolsDescription = this.generateToolsDescription(mcpTools)
                 const thinkingMessages: CoreMessage[] = [
                     { 
                         role: 'system', 
-                        content: `${this.systemPrompt}\n\n${this.THINKING_PHASE_PROMPT}\n\n## 可用工具\n${toolsDescription}` 
+                        content: `${this.THINKING_PHASE_PROMPT}\n\n## 可用工具\n${toolsDescription}` 
                     },
                     ...messages.slice(1), // 跳过原来的 system 消息，使用历史消息
                 ]
@@ -496,7 +501,7 @@ export class Agent {
                 if (thinkingContent) {
                     messages.push({
                         role: 'assistant',
-                        content: `[思考过程]\n${thinkingContent}`,
+                        content: `[内部决策]\n${thinkingContent}`,
                     })
                 }
             }

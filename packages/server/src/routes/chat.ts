@@ -164,8 +164,11 @@ export async function chatRoutes(app: FastifyInstance) {
                 eventCount++
                 // 详细日志（text_delta 太多，只记录计数）
                 if (event.type !== 'text_delta' && event.type !== 'thinking_delta') {
-                    console.log(`[Chat] 📤 发送事件 #${eventCount}: ${event.type}`, 
-                        event.type === 'tool_result' ? `(${event.data.toolName})` : '')
+                    let extraInfo = ''
+                    if (event.type === 'tool_call_start' || event.type === 'tool_result') {
+                        extraInfo = `(${event.data.toolName}, id: ${event.data.toolCallId})`
+                    }
+                    console.log(`[Chat] 📤 发送事件 #${eventCount}: ${event.type}`, extraInfo)
                 }
                 
                 // 如果是错误事件，提取错误消息

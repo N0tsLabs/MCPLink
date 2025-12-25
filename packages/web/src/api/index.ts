@@ -233,6 +233,7 @@ class Api {
 
                 const decoder = new TextDecoder()
                 let buffer = ''
+                let currentEvent: string | null = null  // 移到循环外，保持跨 chunk 状态
 
                 while (true) {
                     const { done, value } = await reader.read()
@@ -247,8 +248,6 @@ class Api {
                     // 解析 SSE 事件
                     const lines = buffer.split('\n')
                     buffer = lines.pop() || ''
-
-                    let currentEvent: string | null = null
 
                     for (const line of lines) {
                         if (line.startsWith('event: ')) {
