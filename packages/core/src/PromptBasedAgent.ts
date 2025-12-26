@@ -30,6 +30,8 @@ export class PromptBasedAgent {
             immediateResultMatchers?: ImmediateResultMatcher[]
             parallelToolCalls?: boolean
             enableThinkingPhase?: boolean
+            thinkingPhasePrompt?: string  // 保留以保持接口一致，PromptBasedAgent 通过内置 prompt 实现思考
+            thinkingMaxTokens?: number    // 保留以保持接口一致
         } = {}
     ) {
         this.model = model

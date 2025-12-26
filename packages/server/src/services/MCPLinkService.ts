@@ -109,6 +109,8 @@ export class MCPLinkService {
             maxIterations: settings.maxIterations,
             usePromptBasedTools: settings.usePromptBasedTools,
             enableThinkingPhase: settings.enableThinkingPhase,
+            thinkingPhasePrompt: settings.thinkingPhasePrompt,
+            thinkingMaxTokens: settings.thinkingMaxTokens,
             immediateResultMatchers: settings.immediateResultMatchers,
         })
 

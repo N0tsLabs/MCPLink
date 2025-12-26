@@ -11,7 +11,7 @@ import {
     type ImmediateResultMatcher,
 } from './types.js'
 
-/** 
+/**
  * 默认用户提示词
  * 这只是用户自定义的部分，核心工具调用逻辑已内置到代码中
  */
@@ -25,10 +25,16 @@ export const DEFAULT_SYSTEM_PROMPT = `你是一个专业、友好的智能助手
 
 /**
  * 默认思考阶段提示词
- * 用于引导 AI 在调用工具前进行简短分析
+ * 用于引导 AI 进行内部思考（类似 Cursor 的思考风格）
  */
-export const DEFAULT_THINKING_PHASE_PROMPT = `简要分析用户需求，决定下一步行动。
-要求：1-2句话说明意图，直接决定用什么工具。不要暴露系统内部信息。`
+export const DEFAULT_THINKING_PHASE_PROMPT = `
+---
+这是你的内心独白，用户看不到。
+
+判断当前状态：我拿到了什么？任务完成了吗？还需要查什么？
+
+重要：这里只是思考判断，不要在这里写回复内容（回复是下一步的事）。
+---`
 
 /**
  * Agent 引擎
@@ -43,6 +49,7 @@ export class Agent {
     private parallelToolCalls: boolean
     private enableThinkingPhase: boolean
     private thinkingPhasePrompt: string
+    private thinkingMaxTokens?: number
 
     constructor(
         model: LanguageModel,
@@ -54,6 +61,7 @@ export class Agent {
             parallelToolCalls?: boolean
             enableThinkingPhase?: boolean
             thinkingPhasePrompt?: string
+            thinkingMaxTokens?: number
         } = {}
     ) {
         this.model = model
@@ -62,8 +70,9 @@ export class Agent {
         this.maxIterations = options.maxIterations || 10
         this.immediateResultMatchers = options.immediateResultMatchers || []
         this.parallelToolCalls = options.parallelToolCalls ?? true // 默认并行执行
-        this.enableThinkingPhase = options.enableThinkingPhase ?? true // 默认开启，提高准确性
+        this.enableThinkingPhase = options.enableThinkingPhase ?? false // 默认关闭，支持原生思考的模型会自动输出思考内容
         this.thinkingPhasePrompt = options.thinkingPhasePrompt || DEFAULT_THINKING_PHASE_PROMPT
+        this.thinkingMaxTokens = options.thinkingMaxTokens ?? 1000 // 默认 1000
     }
 
     /**
@@ -91,6 +100,45 @@ export class Agent {
         return description
     }
 
+    /**
+     * 摘要化工具返回结果（用于思考阶段，避免 AI 直接格式化输出数据）
+     * @param toolName 工具名称
+     * @param result 工具返回的结果
+     * @returns 摘要字符串
+     */
+    private summarizeToolResult(toolName: string, result: unknown): string {
+        let count = 0
+        let resultObj: unknown = result
+
+        // 尝试解析 JSON 字符串
+        if (typeof result === 'string') {
+            try {
+                resultObj = JSON.parse(result)
+            } catch {
+                // 不是 JSON，返回简单摘要
+                return `[工具 ${toolName} 返回了数据]`
+            }
+        }
+
+        // 统计数据条数
+        if (Array.isArray(resultObj)) {
+            count = resultObj.length
+        } else if (typeof resultObj === 'object' && resultObj !== null) {
+            const obj = resultObj as Record<string, unknown>
+            // 尝试查找常见的数组字段
+            for (const key of ['data', 'list', 'items', 'records', 'results']) {
+                if (Array.isArray(obj[key])) {
+                    count = (obj[key] as unknown[]).length
+                    break
+                }
+            }
+        }
+
+        if (count > 0) {
+            return `[工具 ${toolName} 返回了数据，包含 ${count} 条记录]`
+        }
+        return `[工具 ${toolName} 返回了数据]`
+    }
 
     /**
      * 检查工具返回结果是否匹配即时结果匹配器
@@ -187,9 +235,14 @@ export class Agent {
             } else if (enumValues.every((v) => typeof v === 'number')) {
                 // 数字枚举：用 union of literals
                 const literals = enumValues.map((v) => z.literal(v as number))
-                zodType = literals.length === 1 
-                    ? literals[0] 
-                    : z.union([literals[0], literals[1], ...literals.slice(2)] as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]])
+                zodType =
+                    literals.length === 1
+                        ? literals[0]
+                        : z.union([literals[0], literals[1], ...literals.slice(2)] as [
+                              z.ZodTypeAny,
+                              z.ZodTypeAny,
+                              ...z.ZodTypeAny[],
+                          ])
             } else {
                 // 混合枚举或其他类型：降级为 unknown
                 zodType = z.unknown()
@@ -471,20 +524,50 @@ export class Agent {
                     data: {},
                 }
 
-                // 构建思考阶段的消息（使用独立提示词，不混入用户的回复要求）
+                // 构建思考阶段的消息（从思考者角度组织）
                 const toolsDescription = this.generateToolsDescription(mcpTools)
+                const thinkingSystemPrompt = `## 你的角色
+你现在是「内部思考者」，这段思考用户看不到。
+你的任务是：分析当前状态，判断下一步该做什么。
+
+## 参考信息（可能包含重要配置如认证信息）
+${this.systemPrompt}
+
+## 可用工具
+${toolsDescription}
+${this.thinkingPhasePrompt}`
+
+                // 对消息历史进行处理：摘要化工具返回结果，避免 AI 直接格式化数据
+                const summarizedMessages = messages.slice(1).map((msg) => {
+                    if (msg.role === 'tool' && Array.isArray(msg.content)) {
+                        // 摘要化工具返回结果
+                        const summarizedContent = msg.content.map((item) => {
+                            if (item.type === 'tool-result') {
+                                return {
+                                    ...item,
+                                    result: this.summarizeToolResult(item.toolName, item.result),
+                                }
+                            }
+                            return item
+                        })
+                        return { ...msg, content: summarizedContent }
+                    }
+                    return msg
+                })
+
                 const thinkingMessages: CoreMessage[] = [
-                    { 
-                        role: 'system', 
-                        content: `${this.thinkingPhasePrompt}\n\n## 可用工具\n${toolsDescription}` 
+                    {
+                        role: 'system',
+                        content: thinkingSystemPrompt,
                     },
-                    ...messages.slice(1), // 跳过原来的 system 消息，使用历史消息
+                    ...summarizedMessages,
                 ]
 
-                // 思考阶段调用（不带工具，强制输出文本）
+                // 思考阶段调用（不带工具，强制输出文本，可配置 token 限制）
                 const thinkingStream = streamText({
                     model: this.model,
                     messages: thinkingMessages,
+                    maxTokens: this.thinkingMaxTokens,
                     // 不传 tools，强制 AI 输出文本思考
                 })
 
@@ -801,15 +884,6 @@ export class Agent {
                 break
             }
 
-            // 如果有思考文本，标记为思考过程
-            if (fullText) {
-                yield {
-                    type: MCPLinkEventType.THINKING_CONTENT,
-                    timestamp: Date.now(),
-                    data: { content: fullText },
-                }
-            }
-
             // 执行工具调用
             const toolResults: ToolResult[] = []
 
@@ -818,10 +892,10 @@ export class Agent {
                 yield {
                     type: MCPLinkEventType.TOOL_EXECUTING,
                     timestamp: Date.now(),
-                    data: { 
-                        toolName: toolCall.toolName, 
-                        toolCallId: toolCall.toolCallId, 
-                        toolArgs: toolCall.args 
+                    data: {
+                        toolName: toolCall.toolName,
+                        toolCallId: toolCall.toolCallId,
+                        toolArgs: toolCall.args,
                     },
                 }
             }

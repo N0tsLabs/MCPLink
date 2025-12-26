@@ -47,6 +47,16 @@ export interface SystemConfig {
      */
     enableThinkingPhase?: boolean
     /**
+     * 自定义思考阶段提示词
+     * 用于引导 AI 在调用工具前进行分析，如果不设置则使用默认提示词
+     */
+    thinkingPhasePrompt?: string
+    /**
+     * 思考阶段的最大 token 数
+     * 用于限制思考输出长度，不设置则不限制
+     */
+    thinkingMaxTokens?: number
+    /**
      * 即时结果匹配器列表
      * 当 MCP 工具返回的结果匹配任意一个匹配器时，会立即结束对话（无需 AI 继续处理）
      * 匹配规则：结果 JSON 中包含匹配器的所有 key 且对应的 value 相等

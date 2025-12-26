@@ -126,6 +126,8 @@ export class MCPLink {
             immediateResultMatchers: config.immediateResultMatchers,
             parallelToolCalls: config.parallelToolCalls,
             enableThinkingPhase: config.enableThinkingPhase,
+            thinkingPhasePrompt: config.thinkingPhasePrompt,
+            thinkingMaxTokens: config.thinkingMaxTokens,
         })
 
         // 创建 PromptBasedAgent
@@ -135,6 +137,8 @@ export class MCPLink {
             immediateResultMatchers: config.immediateResultMatchers,
             parallelToolCalls: config.parallelToolCalls,
             enableThinkingPhase: config.enableThinkingPhase,
+            thinkingPhasePrompt: config.thinkingPhasePrompt,
+            thinkingMaxTokens: config.thinkingMaxTokens,
         })
 
         // 自动检测模型是否支持原生工具调用
@@ -280,6 +284,8 @@ export class MCPLink {
             immediateResultMatchers: this.config.immediateResultMatchers,
             parallelToolCalls: this.config.parallelToolCalls,
             enableThinkingPhase: this.config.enableThinkingPhase,
+            thinkingPhasePrompt: this.config.thinkingPhasePrompt,
+            thinkingMaxTokens: this.config.thinkingMaxTokens,
         })
         this.promptBasedAgent = new PromptBasedAgent(this.model, this.mcpManager, {
             systemPrompt: prompt,
@@ -287,6 +293,8 @@ export class MCPLink {
             immediateResultMatchers: this.config.immediateResultMatchers,
             parallelToolCalls: this.config.parallelToolCalls,
             enableThinkingPhase: this.config.enableThinkingPhase,
+            thinkingPhasePrompt: this.config.thinkingPhasePrompt,
+            thinkingMaxTokens: this.config.thinkingMaxTokens,
         })
     }
 
@@ -303,6 +311,8 @@ export class MCPLink {
             immediateResultMatchers: this.config.immediateResultMatchers,
             parallelToolCalls: this.config.parallelToolCalls,
             enableThinkingPhase: this.config.enableThinkingPhase,
+            thinkingPhasePrompt: this.config.thinkingPhasePrompt,
+            thinkingMaxTokens: this.config.thinkingMaxTokens,
         })
         this.promptBasedAgent = new PromptBasedAgent(this.model, this.mcpManager, {
             systemPrompt: this.config.systemPrompt,
@@ -310,6 +320,8 @@ export class MCPLink {
             immediateResultMatchers: this.config.immediateResultMatchers,
             parallelToolCalls: this.config.parallelToolCalls,
             enableThinkingPhase: this.config.enableThinkingPhase,
+            thinkingPhasePrompt: this.config.thinkingPhasePrompt,
+            thinkingMaxTokens: this.config.thinkingMaxTokens,
         })
     }
 }

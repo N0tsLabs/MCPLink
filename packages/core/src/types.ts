@@ -97,9 +97,21 @@ export interface MCPLinkConfig {
      * 缺点：
      * - 每次迭代多一次 API 调用，增加延迟和成本
      * 
-     * @default true
+     * @default false
      */
     enableThinkingPhase?: boolean
+    /**
+     * 自定义思考阶段提示词
+     * 用于引导 AI 在调用工具前进行分析
+     * 
+     * 如果不设置，使用默认提示词
+     */
+    thinkingPhasePrompt?: string
+    /**
+     * 思考阶段的最大 token 数
+     * 用于限制思考输出长度，不设置则不限制
+     */
+    thinkingMaxTokens?: number
 }
 
 // ============ 消息类型 ============
@@ -141,8 +153,6 @@ export enum MCPLinkEventType {
     THINKING_DELTA = 'thinking_delta',
     /** AI 思考结束 */
     THINKING_END = 'thinking_end',
-    /** AI 思考内容（完整，用于工具调用时展示） */
-    THINKING_CONTENT = 'thinking_content',
 
     /** AI 开始回复 */
     TEXT_START = 'text_start',
