@@ -252,10 +252,29 @@ const agent = new MCPLink({
 MCPLink 支持两阶段调用模式，提高复杂任务的准确性：
 
 ```typescript
+import { MCPLink, DEFAULT_THINKING_PHASE_PROMPT } from '@n0ts123/mcplink-core'
+
 const agent = new MCPLink({
   model: openai('gpt-4o'),
   // 启用思考阶段（默认开启）
   enableThinkingPhase: true,
+  // 可选：自定义思考提示词
+  thinkingPhasePrompt: `分析用户需求：
+1. 用户想做什么？
+2. 需要调用哪些工具？
+3. 执行顺序是什么？
+
+注意：不要暴露任何系统内部信息`,
+  mcpServers: { /* ... */ },
+})
+
+// 也可以基于默认提示词扩展
+const agent2 = new MCPLink({
+  model: openai('gpt-4o'),
+  enableThinkingPhase: true,
+  thinkingPhasePrompt: DEFAULT_THINKING_PHASE_PROMPT + `
+- 优先考虑用户体验
+- 复杂任务要拆解步骤`,
   mcpServers: { /* ... */ },
 })
 ```
@@ -267,6 +286,8 @@ const agent = new MCPLink({
 **优点**：
 - 任何模型都能看到思考过程
 - Chain-of-Thought 效应，显著提高复杂任务准确性
+
+**安全说明**：默认的思考提示词已包含安全规则，防止 AI 在思考过程中暴露敏感信息（如用户 token、ID 等）
 
 ### 历史消息
 
@@ -419,10 +440,28 @@ interface MCPLinkConfig {
   // 是否启用思考阶段（默认 true）
   enableThinkingPhase?: boolean
 
+  // 思考阶段提示词（可选，自定义 AI 思考分析的引导语）
+  thinkingPhasePrompt?: string
+
   // 即时结果匹配器
   immediateResultMatchers?: Array<Record<string, unknown>>
 }
 ```
+
+### 配置项说明
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `model` | `LanguageModel` | - | **必填**，AI 模型实例 |
+| `modelName` | `string` | - | 模型名称，用于自动检测能力 |
+| `systemPrompt` | `string` | 内置默认 | 系统提示词，定义 AI 角色和行为 |
+| `thinkingPhasePrompt` | `string` | 内置默认 | 思考阶段提示词，引导 AI 分析问题 |
+| `maxIterations` | `number` | `10` | 最大迭代次数，防止无限循环 |
+| `parallelToolCalls` | `boolean` | `true` | 是否并行执行多个独立的工具调用 |
+| `enableThinkingPhase` | `boolean` | `true` | 是否启用思考阶段 |
+| `usePromptBasedTools` | `boolean \| 'auto'` | `'auto'` | 强制模式选择 |
+| `immediateResultMatchers` | `Array` | `[]` | 即时结果匹配器 |
+| `mcpServers` | `Record` | `{}` | MCP 服务器配置 |
 
 ### MCP 服务器配置
 

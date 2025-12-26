@@ -24,6 +24,24 @@ export const DEFAULT_SYSTEM_PROMPT = `你是一个专业、友好的智能助手
 - 有结论时直接给出，需要补充信息时简单询问`
 
 /**
+ * 默认思考阶段提示词
+ * 用于引导 AI 在调用工具前进行分析思考
+ */
+export const DEFAULT_THINKING_PHASE_PROMPT = `你正在思考如何帮助用户。请用自然的内心独白方式分析：
+
+1. 用户的真正需求是什么？
+2. 我目前了解到哪些相关信息？
+3. 接下来我应该怎么做才能更好地帮助用户？
+
+重要规则：
+- 像在脑海中思考一样自然表达，不要使用技术术语
+- 绝对不要在思考过程中提及、重复或暴露任何标识符、密钥、令牌、凭证或系统内部信息
+- 不要展示或描述任何数据结构、格式或技术实现细节
+- 只关注用户的实际问题和你的分析思路
+- 说清楚你理解了什么，以及你打算如何帮助用户
+- 这是内部思考过程，不要输出给用户看的正式回复或最终结果`
+
+/**
  * Agent 引擎
  * 负责执行 AI 对话循环，处理工具调用
  */
@@ -35,6 +53,7 @@ export class Agent {
     private immediateResultMatchers: ImmediateResultMatcher[]
     private parallelToolCalls: boolean
     private enableThinkingPhase: boolean
+    private thinkingPhasePrompt: string
 
     constructor(
         model: LanguageModel,
@@ -45,6 +64,7 @@ export class Agent {
             immediateResultMatchers?: ImmediateResultMatcher[]
             parallelToolCalls?: boolean
             enableThinkingPhase?: boolean
+            thinkingPhasePrompt?: string
         } = {}
     ) {
         this.model = model
@@ -54,6 +74,7 @@ export class Agent {
         this.immediateResultMatchers = options.immediateResultMatchers || []
         this.parallelToolCalls = options.parallelToolCalls ?? true // 默认并行执行
         this.enableThinkingPhase = options.enableThinkingPhase ?? true // 默认开启，提高准确性
+        this.thinkingPhasePrompt = options.thinkingPhasePrompt || DEFAULT_THINKING_PHASE_PROMPT
     }
 
     /**
@@ -81,20 +102,6 @@ export class Agent {
         return description
     }
 
-    /**
-     * 思考阶段的系统提示词
-     */
-    private readonly THINKING_PHASE_PROMPT = `你正在思考如何帮助用户。请用自然语言分析：
-
-1. 用户想要什么？
-2. 我目前掌握了哪些信息？
-3. 还需要做什么才能回答用户？
-
-要求：
-- 像内心独白一样自然表达
-- 体现你认真分析了问题
-- 说清楚接下来的计划
-- 不要输出给用户看的正式回复（如产品列表、结论等）"`
 
     /**
      * 检查工具返回结果是否匹配即时结果匹配器
@@ -467,7 +474,7 @@ export class Agent {
                 const thinkingMessages: CoreMessage[] = [
                     { 
                         role: 'system', 
-                        content: `${this.THINKING_PHASE_PROMPT}\n\n## 可用工具\n${toolsDescription}` 
+                        content: `${this.thinkingPhasePrompt}\n\n## 可用工具\n${toolsDescription}` 
                     },
                     ...messages.slice(1), // 跳过原来的 system 消息，使用历史消息
                 ]

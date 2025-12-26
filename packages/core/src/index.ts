@@ -5,7 +5,7 @@ export { MCPLink } from './MCPLink.js'
 export { MCPManager } from './MCPManager.js'
 
 // Agent
-export { Agent, DEFAULT_SYSTEM_PROMPT } from './Agent.js'
+export { Agent, DEFAULT_SYSTEM_PROMPT, DEFAULT_THINKING_PHASE_PROMPT } from './Agent.js'
 export { PromptBasedAgent } from './PromptBasedAgent.js'
 
 // AI SDK 重新导出 - 方便用户一站式导入

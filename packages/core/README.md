@@ -208,9 +208,283 @@ interface MCPLinkConfig {
    */
   enableThinkingPhase?: boolean
 
+  /**
+   * 思考阶段提示词（可选）
+   * 自定义 AI 在调用工具前的思考分析提示
+   * 不配置则使用内置的默认提示词
+   */
+  thinkingPhasePrompt?: string
+
   /** 即时结果匹配器，匹配时触发 IMMEDIATE_RESULT 事件 */
   immediateResultMatchers?: Array<Record<string, unknown>>
 }
+```
+
+### 配置项详解
+
+#### 1. `systemPrompt` - 系统提示词
+
+定义 AI 的角色和行为规范：
+
+```typescript
+import { MCPLink, DEFAULT_SYSTEM_PROMPT } from '@n0ts123/mcplink-core'
+
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 完全自定义
+  systemPrompt: `你是一个电商客服助手。
+  
+## 你的职责
+- 帮助用户查询订单
+- 解答产品问题
+- 处理售后服务
+
+## 回复风格
+- 专业、简洁、热情
+- 使用 emoji 增加亲和力`,
+  mcpServers: { /* ... */ },
+})
+
+// 也可以基于默认提示词扩展
+const agent2 = new MCPLink({
+  model: openai('gpt-4o'),
+  systemPrompt: DEFAULT_SYSTEM_PROMPT + `
+
+## 额外规则
+- 回复不超过 200 字
+- 重要信息用加粗标注`,
+  mcpServers: { /* ... */ },
+})
+```
+
+#### 2. `thinkingPhasePrompt` - 思考阶段提示词
+
+自定义 AI 在调用工具前的思考分析过程：
+
+```typescript
+import { MCPLink, DEFAULT_THINKING_PHASE_PROMPT } from '@n0ts123/mcplink-core'
+
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  enableThinkingPhase: true,
+  // 完全自定义思考提示词
+  thinkingPhasePrompt: `请分析用户的需求：
+
+1. 用户想做什么？
+2. 需要调用哪些工具？
+3. 执行顺序是什么？
+
+注意事项：
+- 用自然语言表达思考过程
+- 不要暴露任何系统内部信息
+- 不要展示技术细节或数据结构`,
+  mcpServers: { /* ... */ },
+})
+
+// 基于默认提示词扩展
+const agent2 = new MCPLink({
+  model: openai('gpt-4o'),
+  enableThinkingPhase: true,
+  thinkingPhasePrompt: DEFAULT_THINKING_PHASE_PROMPT + `
+- 优先考虑用户体验
+- 复杂任务要拆解步骤`,
+  mcpServers: { /* ... */ },
+})
+```
+
+**安全说明**：默认的思考提示词已包含安全规则，防止 AI 在思考过程中暴露敏感信息（如用户 token、ID 等）。自定义时请确保包含类似的安全约束。
+
+#### 3. `maxIterations` - 最大迭代次数
+
+控制 Agent 循环的最大轮数，防止无限循环：
+
+```typescript
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 简单任务，减少迭代
+  maxIterations: 5,
+  mcpServers: { /* ... */ },
+})
+
+const complexAgent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 复杂任务，允许更多迭代
+  maxIterations: 20,
+  mcpServers: { /* ... */ },
+})
+```
+
+#### 4. `parallelToolCalls` - 并行工具调用
+
+控制是否同时执行多个独立的工具调用：
+
+```typescript
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 启用并行调用（默认）- 多个独立工具同时执行
+  parallelToolCalls: true,
+  mcpServers: { /* ... */ },
+})
+
+const serialAgent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 禁用并行 - 工具依次执行，适合有依赖关系的场景
+  parallelToolCalls: false,
+  mcpServers: { /* ... */ },
+})
+```
+
+#### 5. `enableThinkingPhase` - 启用思考阶段
+
+控制是否在工具调用前进行思考分析：
+
+```typescript
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 启用思考阶段（默认）- 提高准确性
+  enableThinkingPhase: true,
+  mcpServers: { /* ... */ },
+})
+
+const fastAgent = new MCPLink({
+  model: openai('gpt-4o'),
+  // 禁用思考阶段 - 减少延迟，适合简单任务
+  enableThinkingPhase: false,
+  mcpServers: { /* ... */ },
+})
+```
+
+#### 6. `immediateResultMatchers` - 即时结果匹配器
+
+定义哪些工具返回结果需要立即推送给前端：
+
+```typescript
+const agent = new MCPLink({
+  model: openai('gpt-4o'),
+  immediateResultMatchers: [
+    { type: 'card' },            // 匹配 { type: "card", ... }
+    { type: 'product_list' },    // 匹配 { type: "product_list", ... }
+    { format: 'table' },         // 匹配 { format: "table", ... }
+    { action: 'redirect' },      // 匹配 { action: "redirect", url: "..." }
+  ],
+  mcpServers: { /* ... */ },
+})
+```
+
+#### 7. `usePromptBasedTools` - 强制模式选择
+
+强制指定使用原生或 Prompt-Based 模式：
+
+```typescript
+// 自动检测（默认）
+const autoAgent = new MCPLink({
+  model: openai('gpt-4o'),
+  usePromptBasedTools: 'auto',
+  mcpServers: { /* ... */ },
+})
+
+// 强制使用 Prompt-Based 模式
+const promptAgent = new MCPLink({
+  model: openai('gpt-4o'),
+  usePromptBasedTools: true,
+  mcpServers: { /* ... */ },
+})
+
+// 强制使用原生 Function Calling
+const nativeAgent = new MCPLink({
+  model: openai('gpt-4o'),
+  usePromptBasedTools: false,
+  mcpServers: { /* ... */ },
+})
+```
+
+### 完整配置示例
+
+```typescript
+import { 
+  MCPLink, 
+  createOpenAI,
+  DEFAULT_SYSTEM_PROMPT,
+  DEFAULT_THINKING_PHASE_PROMPT 
+} from '@n0ts123/mcplink-core'
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: 'https://api.openai.com/v1',
+})
+
+const agent = new MCPLink({
+  // 必填：AI 模型
+  model: openai('gpt-4o'),
+  
+  // 可选：模型名称（用于自动检测能力）
+  modelName: 'gpt-4o',
+  
+  // 可选：系统提示词
+  systemPrompt: `你是一个智能客服助手。
+
+## 职责
+- 帮助用户查询和管理订单
+- 解答产品相关问题
+- 提供专业的购物建议
+
+## 回复规范
+- 简洁明了，重点突出
+- 使用列表展示多条信息
+- 金额用 ¥ 符号标注`,
+
+  // 可选：思考阶段提示词
+  thinkingPhasePrompt: `分析用户需求：
+1. 用户的核心诉求是什么？
+2. 需要获取哪些信息？
+3. 应该调用什么工具？
+
+规则：
+- 不要暴露任何内部信息
+- 用自然语言表达
+- 专注于解决用户问题`,
+
+  // 可选：最大迭代次数
+  maxIterations: 10,
+  
+  // 可选：并行工具调用
+  parallelToolCalls: true,
+  
+  // 可选：启用思考阶段
+  enableThinkingPhase: true,
+  
+  // 可选：模式选择
+  usePromptBasedTools: 'auto',
+  
+  // 可选：即时结果匹配器
+  immediateResultMatchers: [
+    { type: 'card' },
+    { type: 'product_list' },
+  ],
+  
+  // MCP 服务器配置
+  mcpServers: {
+    // stdio 模式 - 本地进程
+    business: {
+      type: 'stdio',
+      command: 'node',
+      args: ['./mcp-server.js'],
+      env: { DEBUG: 'true' },
+    },
+    // SSE 模式 - 远程服务
+    remote: {
+      type: 'sse',
+      url: 'http://localhost:8080/mcp',
+      headers: { 'Authorization': 'Bearer token' },
+    },
+    // Streamable HTTP 模式
+    streamable: {
+      type: 'streamable-http',
+      url: 'http://localhost:8080/mcp/stream',
+      headers: { 'X-API-Key': 'key' },
+    },
+  },
+})
 ```
 
 ### MCP 服务器配置
