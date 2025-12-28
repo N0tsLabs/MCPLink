@@ -51,7 +51,10 @@ export class PromptBasedAgent {
      * @returns 如果匹配返回 true，否则返回 false
      */
     private matchImmediateResult(result: unknown): boolean {
+        const debug = process.env.DEBUG_MCPLINK === 'true'
+
         if (!this.immediateResultMatchers.length) {
+            if (debug) console.log('[MCPLink] ⚠️ 未配置即时结果匹配器')
             return false
         }
 
@@ -63,15 +66,18 @@ export class PromptBasedAgent {
                 const parsed = JSON.parse(result)
                 if (typeof parsed === 'object' && parsed !== null) {
                     resultObj = parsed
+                    if (debug) console.log('[MCPLink] 🔍 解析工具结果为对象:', Object.keys(parsed))
                 }
             } catch {
-                // 不是有效 JSON，忽略
+                if (debug) console.log('[MCPLink] ⚠️ 工具结果不是有效 JSON')
             }
         } else if (typeof result === 'object' && result !== null) {
             resultObj = result as Record<string, unknown>
+            if (debug) console.log('[MCPLink] 🔍 工具结果是对象:', Object.keys(result as object))
         }
 
         if (!resultObj) {
+            if (debug) console.log('[MCPLink] ⚠️ 无法解析工具结果为对象')
             return false
         }
 
@@ -85,10 +91,12 @@ export class PromptBasedAgent {
                 }
             }
             if (matched) {
+                if (debug) console.log('[MCPLink] ✅ 即时结果匹配成功:', JSON.stringify(matcher))
                 return true
             }
         }
 
+        if (debug) console.log('[MCPLink] ❌ 即时结果未匹配，期望:', JSON.stringify(this.immediateResultMatchers), '实际:', JSON.stringify(resultObj))
         return false
     }
 
@@ -409,14 +417,7 @@ ${this.BUILT_IN_PROMPT}`
                             // 没有特殊标签，检查是否可以安全输出
                             if (!buffer.includes('<')) {
                                 if (buffer.trim() && (thinkingEnded || !thinkingStarted)) {
-                                    // 如果没有思考过程，自动生成一个简短的
-                                    if (!thinkingStarted && !thinkingEnded) {
-                                        thinkingStarted = true
-                                        thinkingEnded = true
-                                        yield { type: MCPLinkEventType.THINKING_START, timestamp: Date.now(), data: {} }
-                                        yield { type: MCPLinkEventType.THINKING_DELTA, timestamp: Date.now(), data: { content: '分析用户请求...' } }
-                                        yield { type: MCPLinkEventType.THINKING_END, timestamp: Date.now(), data: {} }
-                                    }
+                                    // 不再自动生成伪造的思考过程，只有模型本身输出 <think> 标签时才显示思考
                                     if (!textStarted) {
                                         textStarted = true
                                         yield { type: MCPLinkEventType.TEXT_START, timestamp: Date.now(), data: {} }

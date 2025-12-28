@@ -70,7 +70,7 @@ export class Agent {
         this.maxIterations = options.maxIterations || 10
         this.immediateResultMatchers = options.immediateResultMatchers || []
         this.parallelToolCalls = options.parallelToolCalls ?? true // 默认并行执行
-        this.enableThinkingPhase = options.enableThinkingPhase ?? false // 默认关闭，支持原生思考的模型会自动输出思考内容
+        this.enableThinkingPhase = options.enableThinkingPhase ?? false // 默认关闭，只有模型本身支持 reasoning 才显示思考过程
         this.thinkingPhasePrompt = options.thinkingPhasePrompt || DEFAULT_THINKING_PHASE_PROMPT
         this.thinkingMaxTokens = options.thinkingMaxTokens ?? 1000 // 默认 1000
     }
@@ -146,7 +146,10 @@ export class Agent {
      * @returns 如果匹配返回 true，否则返回 false
      */
     private matchImmediateResult(result: unknown): boolean {
+        const debug = process.env.DEBUG_MCPLINK === 'true'
+
         if (!this.immediateResultMatchers.length) {
+            if (debug) console.log('[MCPLink] ⚠️ 未配置即时结果匹配器')
             return false
         }
 
@@ -158,15 +161,18 @@ export class Agent {
                 const parsed = JSON.parse(result)
                 if (typeof parsed === 'object' && parsed !== null) {
                     resultObj = parsed
+                    if (debug) console.log('[MCPLink] 🔍 解析工具结果为对象:', Object.keys(parsed))
                 }
             } catch {
-                // 不是有效 JSON，忽略
+                if (debug) console.log('[MCPLink] ⚠️ 工具结果不是有效 JSON')
             }
         } else if (typeof result === 'object' && result !== null) {
             resultObj = result as Record<string, unknown>
+            if (debug) console.log('[MCPLink] 🔍 工具结果是对象:', Object.keys(result as object))
         }
 
         if (!resultObj) {
+            if (debug) console.log('[MCPLink] ⚠️ 无法解析工具结果为对象')
             return false
         }
 
@@ -180,10 +186,12 @@ export class Agent {
                 }
             }
             if (matched) {
+                if (debug) console.log('[MCPLink] ✅ 即时结果匹配成功:', JSON.stringify(matcher))
                 return true
             }
         }
 
+        if (debug) console.log('[MCPLink] ❌ 即时结果未匹配，期望:', JSON.stringify(this.immediateResultMatchers), '实际:', JSON.stringify(resultObj))
         return false
     }
 
