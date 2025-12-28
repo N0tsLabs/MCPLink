@@ -98,7 +98,10 @@ export class Agent {
      * @returns 如果匹配返回 true，否则返回 false
      */
     private matchImmediateResult(result: unknown): boolean {
+        const debug = process.env.DEBUG_MCPLINK === 'true'
+
         if (!this.immediateResultMatchers.length) {
+            if (debug) console.log('[MCPLink] ⚠️ 未配置即时结果匹配器')
             return false
         }
 
@@ -110,15 +113,18 @@ export class Agent {
                 const parsed = JSON.parse(result)
                 if (typeof parsed === 'object' && parsed !== null) {
                     resultObj = parsed
+                    if (debug) console.log('[MCPLink] 🔍 解析工具结果为对象:', Object.keys(parsed))
                 }
             } catch {
-                // 不是有效 JSON，忽略
+                if (debug) console.log('[MCPLink] ⚠️ 工具结果不是有效 JSON')
             }
         } else if (typeof result === 'object' && result !== null) {
             resultObj = result as Record<string, unknown>
+            if (debug) console.log('[MCPLink] 🔍 工具结果是对象:', Object.keys(result as object))
         }
 
         if (!resultObj) {
+            if (debug) console.log('[MCPLink] ⚠️ 无法解析工具结果为对象')
             return false
         }
 
@@ -132,10 +138,12 @@ export class Agent {
                 }
             }
             if (matched) {
+                if (debug) console.log('[MCPLink] ✅ 即时结果匹配成功:', JSON.stringify(matcher))
                 return true
             }
         }
 
+        if (debug) console.log('[MCPLink] ❌ 即时结果未匹配，期望:', JSON.stringify(this.immediateResultMatchers), '实际:', JSON.stringify(resultObj))
         return false
     }
 
