@@ -62,7 +62,7 @@ export class Agent {
         this.maxIterations = options.maxIterations || 10
         this.immediateResultMatchers = options.immediateResultMatchers || []
         this.parallelToolCalls = options.parallelToolCalls ?? true // 默认并行执行
-        this.enableThinkingPhase = options.enableThinkingPhase ?? true // 默认开启，提高准确性
+        this.enableThinkingPhase = options.enableThinkingPhase ?? false // 默认关闭，只有模型本身支持 reasoning 才显示思考过程
         this.thinkingPhasePrompt = options.thinkingPhasePrompt || DEFAULT_THINKING_PHASE_PROMPT
     }
 

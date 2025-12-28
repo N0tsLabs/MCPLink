@@ -407,14 +407,7 @@ ${this.BUILT_IN_PROMPT}`
                             // 没有特殊标签，检查是否可以安全输出
                             if (!buffer.includes('<')) {
                                 if (buffer.trim() && (thinkingEnded || !thinkingStarted)) {
-                                    // 如果没有思考过程，自动生成一个简短的
-                                    if (!thinkingStarted && !thinkingEnded) {
-                                        thinkingStarted = true
-                                        thinkingEnded = true
-                                        yield { type: MCPLinkEventType.THINKING_START, timestamp: Date.now(), data: {} }
-                                        yield { type: MCPLinkEventType.THINKING_DELTA, timestamp: Date.now(), data: { content: '分析用户请求...' } }
-                                        yield { type: MCPLinkEventType.THINKING_END, timestamp: Date.now(), data: {} }
-                                    }
+                                    // 不再自动生成伪造的思考过程，只有模型本身输出 <think> 标签时才显示思考
                                     if (!textStarted) {
                                         textStarted = true
                                         yield { type: MCPLinkEventType.TEXT_START, timestamp: Date.now(), data: {} }
