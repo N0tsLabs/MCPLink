@@ -18,7 +18,7 @@ export type {
     MCPLinkConfig,
     MCPServerConfig,
     MCPServerConfigStdio,
-    MCPServerConfigSSE,
+    MCPServerConfigStreamableHTTP,
     ImmediateResultMatcher,
 
     // 消息类型

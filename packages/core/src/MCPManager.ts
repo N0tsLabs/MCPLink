@@ -1,8 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import type { MCPServerConfig, MCPServerConfigStdio, MCPServerConfigSSE, MCPServerConfigStreamableHTTP, MCPTool, MCPServerStatus } from './types.js'
+import type { MCPServerConfig, MCPServerConfigStdio, MCPServerConfigStreamableHTTP, MCPTool, MCPServerStatus } from './types.js'
 
 /**
  * 需要自动重连的错误关键词
@@ -26,7 +25,7 @@ interface MCPServerInstance {
     id: string
     config: MCPServerConfig
     client: Client
-    transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport
+    transport: StdioClientTransport | StreamableHTTPClientTransport
     tools: MCPTool[]
     status: 'stopped' | 'starting' | 'running' | 'error'
     error?: string
@@ -51,12 +50,9 @@ export class MCPManager {
         const client = new Client({ name: 'mcplink', version: '0.0.1' }, { capabilities: {} })
 
         // 创建 Transport
-        let transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport
+        let transport: StdioClientTransport | StreamableHTTPClientTransport
 
-        if (config.type === 'sse') {
-            const sseConfig = config as MCPServerConfigSSE
-            transport = new SSEClientTransport(new URL(sseConfig.url))
-        } else if (config.type === 'streamable-http') {
+        if (config.type === 'streamable-http') {
             const httpConfig = config as MCPServerConfigStreamableHTTP
             transport = new StreamableHTTPClientTransport(new URL(httpConfig.url))
         } else {
@@ -141,10 +137,6 @@ export class MCPManager {
             if (stdioConfig.env && Object.keys(stdioConfig.env).length > 0) {
                 console.log(`   环境变量: ${Object.keys(stdioConfig.env).join(', ')}`)
             }
-        } else if (config.type === 'sse') {
-            const sseConfig = config as MCPServerConfigSSE
-            console.log(`\n🔧 [MCP] 正在连接 SSE 服务器 "${id}"...`)
-            console.log(`   URL: ${sseConfig.url}`)
         } else if (config.type === 'streamable-http') {
             const httpConfig = config as MCPServerConfigStreamableHTTP
             console.log(`\n🔧 [MCP] 正在连接 Streamable HTTP 服务器 "${id}"...`)
@@ -285,12 +277,9 @@ export class MCPManager {
 
             // 重新创建 transport（旧的可能已经损坏）
             const config = server.config
-            let transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport
+            let transport: StdioClientTransport | StreamableHTTPClientTransport
 
-            if (config.type === 'sse') {
-                const sseConfig = config as MCPServerConfigSSE
-                transport = new SSEClientTransport(new URL(sseConfig.url))
-            } else if (config.type === 'streamable-http') {
+            if (config.type === 'streamable-http') {
                 const httpConfig = config as MCPServerConfigStreamableHTTP
                 transport = new StreamableHTTPClientTransport(new URL(httpConfig.url))
             } else {

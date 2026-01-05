@@ -13,15 +13,6 @@ export interface MCPServerConfigStdio {
     env?: Record<string, string>
 }
 
-/** MCP 服务器配置 - SSE 模式 */
-export interface MCPServerConfigSSE {
-    type: 'sse'
-    /** SSE 服务地址 */
-    url: string
-    /** 请求头 */
-    headers?: Record<string, string>
-}
-
 /** MCP 服务器配置 - Streamable HTTP 模式 */
 export interface MCPServerConfigStreamableHTTP {
     type: 'streamable-http'
@@ -32,7 +23,7 @@ export interface MCPServerConfigStreamableHTTP {
 }
 
 /** MCP 服务器配置 */
-export type MCPServerConfig = MCPServerConfigStdio | MCPServerConfigSSE | MCPServerConfigStreamableHTTP
+export type MCPServerConfig = MCPServerConfigStdio | MCPServerConfigStreamableHTTP
 
 /**
  * 即时结果匹配器
