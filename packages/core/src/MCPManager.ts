@@ -5,6 +5,21 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { MCPServerConfig, MCPServerConfigStdio, MCPServerConfigSSE, MCPServerConfigStreamableHTTP, MCPTool, MCPServerStatus } from './types.js'
 
 /**
+ * 需要自动重连的错误关键词
+ * 当工具调用遇到这些错误时，会自动重连服务器并重试一次
+ */
+const RECONNECT_ERROR_KEYWORDS = [
+    'Server not initialized',
+    'session not found',
+    'Session expired',
+    'connection refused',
+    'ECONNREFUSED',
+    'ECONNRESET',
+    'EPIPE',
+    'socket hang up',
+]
+
+/**
  * MCP 服务器实例
  */
 interface MCPServerInstance {
@@ -246,7 +261,90 @@ export class MCPManager {
     }
 
     /**
-     * 调用工具
+     * 检查错误是否需要重连
+     */
+    private isReconnectNeeded(error: unknown): boolean {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        return RECONNECT_ERROR_KEYWORDS.some(keyword =>
+            errorMessage.toLowerCase().includes(keyword.toLowerCase())
+        )
+    }
+
+    /**
+     * 重连指定服务器
+     */
+    private async reconnectServer(serverId: string): Promise<boolean> {
+        const server = this.servers.get(serverId)
+        if (!server) return false
+
+        console.log(`🔄 [MCP] 正在重连服务器 "${serverId}"...`)
+
+        try {
+            // 先停止
+            await this.stopServer(serverId)
+
+            // 重新创建 transport（旧的可能已经损坏）
+            const config = server.config
+            let transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport
+
+            if (config.type === 'sse') {
+                const sseConfig = config as MCPServerConfigSSE
+                transport = new SSEClientTransport(new URL(sseConfig.url))
+            } else if (config.type === 'streamable-http') {
+                const httpConfig = config as MCPServerConfigStreamableHTTP
+                transport = new StreamableHTTPClientTransport(new URL(httpConfig.url))
+            } else {
+                const stdioConfig = config as MCPServerConfigStdio
+                const processEnv: Record<string, string> = {}
+                for (const [key, value] of Object.entries(process.env)) {
+                    if (value !== undefined) {
+                        processEnv[key] = value
+                    }
+                }
+                const mergedEnv = {
+                    ...processEnv,
+                    ...stdioConfig.env,
+                }
+
+                const isWindows = process.platform === 'win32'
+                let command = stdioConfig.command
+                let args = stdioConfig.args || []
+
+                if (isWindows) {
+                    const windowsCommands = ['npx', 'npm', 'node', 'pnpm', 'yarn', 'bunx']
+                    if (windowsCommands.includes(command.toLowerCase())) {
+                        args = ['/c', command, ...args]
+                        command = 'cmd'
+                    }
+                }
+
+                transport = new StdioClientTransport({
+                    command,
+                    args,
+                    env: mergedEnv,
+                })
+            }
+
+            // 创建新的 client
+            const client = new Client({ name: 'mcplink', version: '0.0.1' }, { capabilities: {} })
+
+            // 更新服务器实例
+            server.client = client
+            server.transport = transport
+
+            // 重新启动
+            await this.startServer(serverId)
+
+            console.log(`✅ [MCP] 服务器 "${serverId}" 重连成功`)
+            return true
+        } catch (error) {
+            console.error(`❌ [MCP] 服务器 "${serverId}" 重连失败:`, error)
+            return false
+        }
+    }
+
+    /**
+     * 调用工具（带自动重连机制）
      */
     async callTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
         // 找到提供该工具的服务器
@@ -255,39 +353,63 @@ export class MCPManager {
 
             const tool = server.tools.find((t) => t.name === toolName)
             if (tool) {
-                const result = await server.client.callTool({
-                    name: toolName,
-                    arguments: args,
-                })
+                // 尝试调用工具，失败时自动重连并重试一次
+                const executeCall = async (): Promise<unknown> => {
+                    const result = await server.client.callTool({
+                        name: toolName,
+                        arguments: args,
+                    })
 
-                // 处理结果
-                if (result.content && Array.isArray(result.content)) {
-                    // 如果是文本内容，拼接返回
-                    const textContents = result.content
-                        .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
-                        .map((c) => c.text)
+                    // 处理结果
+                    if (result.content && Array.isArray(result.content)) {
+                        // 如果是文本内容，拼接返回
+                        const textContents = result.content
+                            .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
+                            .map((c) => c.text)
 
-                    if (textContents.length > 0) {
-                        const textResult = textContents.join('\n')
-                        // 检查是否是错误结果
-                        if (result.isError) {
-                            throw new Error(textResult || '工具执行失败')
+                        if (textContents.length > 0) {
+                            const textResult = textContents.join('\n')
+                            // 检查是否是错误结果
+                            if (result.isError) {
+                                throw new Error(textResult || '工具执行失败')
+                            }
+                            return textResult
                         }
-                        return textResult
                     }
+
+                    // 检查是否是错误结果
+                    if (result.isError) {
+                        const errorContent = result.content
+                        throw new Error(
+                            typeof errorContent === 'string'
+                                ? errorContent
+                                : JSON.stringify(errorContent) || '工具执行失败'
+                        )
+                    }
+
+                    return result.content
                 }
 
-                // 检查是否是错误结果
-                if (result.isError) {
-                    const errorContent = result.content
-                    throw new Error(
-                        typeof errorContent === 'string'
-                            ? errorContent
-                            : JSON.stringify(errorContent) || '工具执行失败'
-                    )
-                }
+                try {
+                    return await executeCall()
+                } catch (error) {
+                    // 检查是否需要重连
+                    if (this.isReconnectNeeded(error)) {
+                        console.log(`⚠️ [MCP] 工具调用失败，检测到连接错误，尝试重连: ${error instanceof Error ? error.message : error}`)
 
-                return result.content
+                        // 尝试重连
+                        const reconnected = await this.reconnectServer(server.id)
+
+                        if (reconnected) {
+                            // 重连成功，重试一次
+                            console.log(`🔁 [MCP] 重连成功，正在重试工具调用: ${toolName}`)
+                            return await executeCall()
+                        }
+                    }
+
+                    // 重连失败或不需要重连，抛出原始错误
+                    throw error
+                }
             }
         }
 
