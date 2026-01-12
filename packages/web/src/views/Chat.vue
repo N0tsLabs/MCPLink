@@ -14,8 +14,21 @@
                 <TransitionGroup name="message">
                     <div v-for="(msg, index) in messages" :key="msg.id" class="message" :class="msg.role">
                         <!-- 用户消息 -->
-                        <div v-if="msg.role === 'user'" class="user-bubble">
-                            {{ msg.content }}
+                        <div v-if="msg.role === 'user'" class="user-message-wrapper">
+                            <!-- 用户上传的图片 -->
+                            <div v-if="msg.images && msg.images.length > 0" class="user-images">
+                                <img 
+                                    v-for="(img, idx) in msg.images" 
+                                    :key="idx" 
+                                    :src="img" 
+                                    :alt="`用户图片 ${idx + 1}`"
+                                    class="user-image"
+                                    @click="openImagePreview(img)"
+                                />
+                            </div>
+                            <div class="user-bubble">
+                                {{ msg.content }}
+                            </div>
                         </div>
 
                         <!-- AI 消息 -->
@@ -456,6 +469,36 @@
 
             <!-- 输入区域 -->
             <div class="input-area">
+            <!-- 图片链接输入框 -->
+            <div v-if="showImageUrlInput" class="image-url-input-area">
+                <div class="image-url-input">
+                    <input 
+                        type="text" 
+                        v-model="imageUrlInput" 
+                        placeholder="粘贴图片链接 (https://...)" 
+                        @keydown.enter="addImageUrl"
+                        @keydown.escape="cancelImageUrl"
+                    />
+                    <button class="confirm-btn" @click="addImageUrl">确定</button>
+                    <button class="cancel-btn" @click="cancelImageUrl">取消</button>
+                </div>
+            </div>
+
+            <!-- 图片预览区域 -->
+            <div v-if="imageUrls.length > 0" class="image-preview-area">
+                <div class="image-preview-list">
+                    <div v-for="(url, index) in imageUrls" :key="index" class="image-preview-item">
+                        <img :src="url" :alt="`图片 ${index + 1}`" @error="(e) => (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%22%23888%22>加载失败</text></svg>'" />
+                        <button class="remove-image-btn" @click="removeImage(index)" title="移除图片">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 工具选择器 -->
             <div v-if="store.availableTools.length > 0" class="tools-selector">
                 <div class="tools-trigger" @click="showToolsPanel = !showToolsPanel">
@@ -507,6 +550,19 @@
             </div>
 
             <div class="input-box">
+                <!-- 图片链接按钮 -->
+                <button 
+                    class="upload-btn" 
+                    @click="triggerImageUpload" 
+                    :disabled="!store.isConnected"
+                    title="上传图片"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                </button>
                 <textarea
                     ref="inputRef"
                     v-model="inputMessage"
@@ -519,7 +575,7 @@
                 <button
                     v-if="!isGenerating"
                     class="send-btn"
-                    :disabled="!inputMessage.trim() || !store.isConnected"
+                    :disabled="(!inputMessage.trim() && imageUrls.length === 0) || !store.isConnected"
                     @click="sendMessage"
                 >
                     <svg
@@ -624,6 +680,8 @@ interface ChatMessage {
     content: string
     timestamp: number
     status?: 'thinking' | 'calling_tool' | 'generating' | 'done'
+    // 用户上传的图片（base64 或 URL）
+    images?: string[]
     // 执行步骤数组，按顺序存储思考和工具调用
     steps: ExecutionStep[]
     // 保留旧字段用于兼容
@@ -643,6 +701,53 @@ const inputRef = ref<HTMLTextAreaElement | null>(null)
 const streamingThinkingRef = ref<HTMLElement | null>(null)
 const inputMessage = ref('')
 const isGenerating = ref(false)
+
+// 图片链接相关
+const imageUrls = ref<string[]>([])
+const showImageUrlInput = ref(false)
+const imageUrlInput = ref('')
+
+// 显示图片链接输入框
+function triggerImageUpload() {
+    showImageUrlInput.value = true
+    // 聚焦输入框
+    nextTick(() => {
+        const input = document.querySelector('.image-url-input input') as HTMLInputElement
+        input?.focus()
+    })
+}
+
+// 添加图片链接
+function addImageUrl() {
+    const url = imageUrlInput.value.trim()
+    if (!url) return
+    
+    // 简单验证是否是有效的图片链接
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        alert('请输入有效的图片链接（以 http:// 或 https:// 开头）')
+        return
+    }
+    
+    imageUrls.value.push(url)
+    imageUrlInput.value = ''
+    showImageUrlInput.value = false
+}
+
+// 取消添加图片
+function cancelImageUrl() {
+    imageUrlInput.value = ''
+    showImageUrlInput.value = false
+}
+
+// 移除图片
+function removeImage(index: number) {
+    imageUrls.value.splice(index, 1)
+}
+
+// 打开图片预览
+function openImagePreview(src: string) {
+    window.open(src, '_blank')
+}
 // 使用 shallowRef 配合手动 triggerRef 来确保响应式更新
 const messages = shallowRef<ChatMessage[]>([])
 const showToolsPanel = ref(false)
@@ -1161,16 +1266,25 @@ function stopGeneration() {
 // 发送消息
 async function sendMessage() {
     const message = inputMessage.value.trim()
-    if (!message || isGenerating.value) return
+    const hasImages = imageUrls.value.length > 0
+    
+    // 必须有文字或图片
+    if (!message && !hasImages) return
+    if (isGenerating.value) return
+
+    // 收集图片链接
+    const imagesToSend = [...imageUrls.value]
 
     addDebugLog('request', 'SEND', `发送消息: "${message.slice(0, 50)}${message.length > 50 ? '...' : ''}"`, {
         fullMessage: message,
+        imageCount: imagesToSend.length,
         modelId: store.currentModelId,
         conversationId: store.currentConversationId,
         isGenerating: isGenerating.value
     })
 
     inputMessage.value = ''
+    imageUrls.value = []  // 清空已选图片
     if (inputRef.value) {
         inputRef.value.style.height = 'auto'
     }
@@ -1185,8 +1299,9 @@ async function sendMessage() {
     const userMsg: ChatMessage = {
         id: `msg-${Date.now()}-user`,
         role: 'user',
-        content: message,
+        content: message || '(发送了图片)',
         timestamp: Date.now(),
+        images: imagesToSend.length > 0 ? imagesToSend : undefined,
         steps: [],
     }
 
@@ -1266,13 +1381,16 @@ async function sendMessage() {
         url: `${api.getBaseUrl()}/api/chat`,
         modelId: store.currentModelId,
         conversationId: store.currentConversationId,
-        tools: selectedTools
+        tools: selectedTools,
+        imagesCount: imagesToSend.length,
+        images: imagesToSend
     })
 
-    abortController = api.chat(message, {
+    abortController = api.chat(message || '', {
         modelId: store.currentModelId || undefined,
         conversationId: store.currentConversationId || undefined,
         tools: selectedTools,
+        images: imagesToSend.length > 0 ? imagesToSend : undefined,
         onEvent: (event) => {
             const aiMsg = getAiMsg()
             
@@ -2624,5 +2742,168 @@ onUnmounted(() => {
 
 .hint .warning {
     color: var(--warning-color);
+}
+
+/* 图片链接输入区域 */
+.image-url-input-area {
+    max-width: var(--max-chat-width);
+    margin: 0 auto 8px;
+    padding: 0 16px;
+}
+
+.image-url-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.image-url-input input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.image-url-input input::placeholder {
+    color: var(--text-placeholder);
+}
+
+.image-url-input .confirm-btn,
+.image-url-input .cancel-btn {
+    padding: 4px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.image-url-input .confirm-btn {
+    background: var(--accent-color);
+    color: white;
+}
+
+.image-url-input .confirm-btn:hover {
+    background: var(--accent-hover);
+}
+
+.image-url-input .cancel-btn {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+}
+
+.image-url-input .cancel-btn:hover {
+    background: var(--border-color);
+}
+
+/* 图片预览区域 */
+.image-preview-area {
+    max-width: var(--max-chat-width);
+    margin: 0 auto 8px;
+    padding: 0 16px;
+}
+
+.image-preview-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.image-preview-item {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.image-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-image-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.remove-image-btn:hover {
+    background: var(--error-color);
+}
+
+/* 图片上传按钮 */
+.upload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.upload-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--accent-color);
+}
+
+.upload-btn:disabled {
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+}
+
+/* 用户消息样式 */
+.user-message-wrapper {
+    max-width: 75%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.user-images {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.user-image {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    object-fit: contain;
+    background: var(--bg-tertiary);
+}
+
+.user-image:hover {
+    transform: scale(1.02);
 }
 </style>

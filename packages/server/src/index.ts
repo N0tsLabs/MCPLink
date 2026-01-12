@@ -16,6 +16,7 @@ async function main() {
     // 创建 Fastify 实例
     const app = Fastify({
         logger: true,
+        bodyLimit: 50 * 1024 * 1024, // 50MB，支持上传大图片
     })
 
     // 注册 CORS

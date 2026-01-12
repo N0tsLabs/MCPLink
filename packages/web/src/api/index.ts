@@ -192,6 +192,8 @@ class Api {
 
     /**
      * 发起对话（SSE 流式）
+     * @param message 文本消息
+     * @param options.images 图片数组（base64 格式）
      */
     chat(
         message: string,
@@ -199,6 +201,7 @@ class Api {
             modelId?: string
             conversationId?: string
             tools?: string[]
+            images?: string[]  // base64 图片数组
             onEvent: (event: SSEEvent) => void
             onError?: (error: Error) => void
             onComplete?: () => void
@@ -218,6 +221,7 @@ class Api {
                 modelId: options.modelId,
                 conversationId: options.conversationId,
                 tools: options.tools,
+                images: options.images,
             }),
             signal: controller.signal,
         })

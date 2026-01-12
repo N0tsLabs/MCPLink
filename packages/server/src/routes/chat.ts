@@ -17,6 +17,7 @@ export async function chatRoutes(app: FastifyInstance) {
      * - conversationId?: string - 会话 ID
      * - stream?: boolean - 是否流式响应，默认 true
      * - tools?: string[] - 允许使用的工具名称列表，为空或不传则使用所有工具
+     * - images?: string[] - 图片数组（base64 格式）
      *
      * 响应:
      * - stream=true: SSE 流式响应
@@ -29,17 +30,25 @@ export async function chatRoutes(app: FastifyInstance) {
             conversationId,
             stream = true,
             tools,
+            images,
         } = request.body as {
             message: string
             modelId?: string
             conversationId?: string
             stream?: boolean
             tools?: string[]
+            images?: string[]
         }
 
-        if (!message) {
-            return reply.status(400).send({ error: 'Message is required' })
+        // 必须有消息或图片
+        const hasMessage = message && message.trim().length > 0
+        const hasImages = images && images.length > 0
+        
+        if (!hasMessage && !hasImages) {
+            return reply.status(400).send({ error: 'Message or images is required' })
         }
+        
+        console.log(`[Chat] 📥 收到请求: 消息=${hasMessage ? '有' : '无'}, 图片数量=${images?.length || 0}`)
 
         // 获取历史消息
         let history: Array<{ role: 'user' | 'assistant'; content: string }> = []
@@ -53,12 +62,15 @@ export async function chatRoutes(app: FastifyInstance) {
             }
         }
 
-        const chatOptions: { tools?: string[]; history?: typeof history } = {}
+        const chatOptions: { tools?: string[]; history?: typeof history; images?: string[] } = {}
         if (tools && tools.length > 0) {
             chatOptions.tools = tools
         }
         if (history.length > 0) {
             chatOptions.history = history
+        }
+        if (images && images.length > 0) {
+            chatOptions.images = images
         }
 
         // 非流式模式 - 直接返回 JSON

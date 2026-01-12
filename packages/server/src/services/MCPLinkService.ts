@@ -137,6 +137,7 @@ export class MCPLinkService {
      * @param options 可选参数
      * @param options.tools 允许使用的工具名称列表
      * @param options.history 历史消息列表
+     * @param options.images 图片数组（base64 格式）
      */
     async *chat(
         message: string,
@@ -144,6 +145,7 @@ export class MCPLinkService {
         options?: {
             tools?: string[]
             history?: Array<{ role: 'user' | 'assistant'; content: string }>
+            images?: string[]
         }
     ): AsyncGenerator<MCPLinkEvent> {
         // 如果指定了不同的模型，重新初始化
@@ -152,10 +154,40 @@ export class MCPLinkService {
         }
 
         const mcpLink = await this.ensureInitialized()
-        yield* mcpLink.chatStream(message, {
-            allowedTools: options?.tools,
-            history: options?.history,
-        })
+        
+        // 如果有图片，构建多模态消息
+        if (options?.images && options.images.length > 0) {
+            const multimodalMessage = this.buildMultimodalMessage(message, options.images)
+            yield* mcpLink.chatStream(multimodalMessage, {
+                allowedTools: options?.tools,
+                history: options?.history,
+            })
+        } else {
+            yield* mcpLink.chatStream(message, {
+                allowedTools: options?.tools,
+                history: options?.history,
+            })
+        }
+    }
+
+    /**
+     * 构建多模态消息
+     * 将文本和图片组合成多模态消息格式
+     */
+    private buildMultimodalMessage(text: string, images: string[]): Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> {
+        const content: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = []
+        
+        // 添加图片
+        for (const imageData of images) {
+            content.push({ type: 'image', image: imageData })
+        }
+        
+        // 添加文本（如果有）
+        if (text) {
+            content.push({ type: 'text', text })
+        }
+        
+        return content
     }
 
     /**

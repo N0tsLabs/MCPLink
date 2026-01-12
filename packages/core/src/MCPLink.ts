@@ -10,6 +10,7 @@ import type {
     MCPLinkEvent,
     MCPTool,
     MCPServerStatus,
+    UserMessage,
 } from './types.js'
 
 /**
@@ -188,13 +189,13 @@ export class MCPLink {
 
     /**
      * 流式对话
-     * @param message 用户消息
+     * @param message 用户消息（支持字符串或多模态数组）
      * @param options 可选参数
      * @param options.allowedTools 允许使用的工具名称列表
      * @param options.history 历史消息列表
      */
     async *chatStream(
-        message: string,
+        message: UserMessage,
         options?: {
             allowedTools?: string[]
             history?: Array<{ role: 'user' | 'assistant'; content: string }>

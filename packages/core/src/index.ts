@@ -27,6 +27,13 @@ export type {
     ToolCall,
     ToolResult,
 
+    // 多模态消息类型
+    UserMessage,
+    MessageContentPart,
+    TextPart,
+    ImagePart,
+    FilePart,
+
     // 事件类型
     MCPLinkEvent,
     MCPLinkEventData,

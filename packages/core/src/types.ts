@@ -1,5 +1,37 @@
 import type { LanguageModel } from 'ai'
 
+// ============ 多模态消息类型 ============
+
+/** 文本内容部分 */
+export interface TextPart {
+    type: 'text'
+    text: string
+}
+
+/** 图片内容部分 */
+export interface ImagePart {
+    type: 'image'
+    /** 图片 URL 或 base64 数据 */
+    image: string | URL
+    /** 可选的 MIME 类型 */
+    mimeType?: string
+}
+
+/** 文件内容部分 */
+export interface FilePart {
+    type: 'file'
+    /** 文件 URL 或 base64 数据 */
+    data: string | URL
+    /** MIME 类型 */
+    mimeType: string
+}
+
+/** 多模态消息内容部分 */
+export type MessageContentPart = TextPart | ImagePart | FilePart
+
+/** 用户消息类型 - 支持字符串或多模态数组 */
+export type UserMessage = string | MessageContentPart[]
+
 // ============ 配置类型 ============
 
 /** MCP 服务器配置 - stdio 模式 */

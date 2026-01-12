@@ -1,6 +1,6 @@
 import { streamText, type LanguageModel, type CoreMessage } from 'ai'
 import type { MCPManager } from './MCPManager.js'
-import { MCPLinkEventType, type MCPTool, type MCPLinkEvent, type ImmediateResultMatcher } from './types.js'
+import { MCPLinkEventType, type MCPTool, type MCPLinkEvent, type ImmediateResultMatcher, type UserMessage, type MessageContentPart } from './types.js'
 
 /**
  * 基于 Prompt 的 Agent
@@ -261,10 +261,45 @@ ${this.BUILT_IN_PROMPT}`
     }
 
     /**
-     * 流式对话
+     * 将 UserMessage 转换为 Vercel AI SDK 的消息内容格式
+     */
+    private convertUserMessageToContent(message: UserMessage): string | Array<{ type: 'text'; text: string } | { type: 'image'; image: string | URL; mimeType?: string } | { type: 'file'; data: string | URL; mimeType: string }> {
+        if (typeof message === 'string') {
+            return message
+        }
+        // 多模态消息数组
+        return message.map((part) => {
+            switch (part.type) {
+                case 'text':
+                    return { type: 'text' as const, text: part.text }
+                case 'image':
+                    return { type: 'image' as const, image: part.image, mimeType: part.mimeType }
+                case 'file':
+                    return { type: 'file' as const, data: part.data, mimeType: part.mimeType }
+                default:
+                    return { type: 'text' as const, text: '' }
+            }
+        })
+    }
+
+    /**
+     * 从 UserMessage 提取纯文本内容（用于日志等）
+     */
+    private extractTextFromMessage(message: UserMessage): string {
+        if (typeof message === 'string') {
+            return message
+        }
+        return message
+            .filter((part): part is MessageContentPart & { type: 'text' } => part.type === 'text')
+            .map((part) => part.text)
+            .join('\n')
+    }
+
+    /**
+     * 流式对话（支持多模态消息）
      */
     async *chatStream(
-        userMessage: string,
+        userMessage: UserMessage,
         options?: {
             allowedTools?: string[]
             history?: Array<{ role: 'user' | 'assistant'; content: string }>
@@ -292,9 +327,11 @@ ${this.BUILT_IN_PROMPT}`
             }
         }
 
-        // 添加当前消息
-        messages.push({ role: 'user', content: userMessage })
-        console.log(`[PromptBasedAgent] 📝 用户消息: "${userMessage.slice(0, 50)}${userMessage.length > 50 ? '...' : ''}"`)
+        // 添加当前消息（支持多模态）
+        const userContent = this.convertUserMessageToContent(userMessage)
+        messages.push({ role: 'user', content: userContent })
+        const textPreview = this.extractTextFromMessage(userMessage)
+        console.log(`[PromptBasedAgent] 📝 用户消息: "${textPreview.slice(0, 50)}${textPreview.length > 50 ? '...' : ''}"`)
         console.log(`[PromptBasedAgent] 📊 总消息数: ${messages.length}`)
 
         let iteration = 0
