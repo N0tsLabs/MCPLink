@@ -348,14 +348,20 @@ ${this.BUILT_IN_PROMPT}`
             // 调用模型（带超时控制）
             console.log(`[PromptBasedAgent] 🤖 调用模型，迭代 ${iteration}/${this.maxIterations}...`)
             const modelStartTime = Date.now()
-            
-            const stream = streamText({ 
-                model: this.model, 
+
+            const stream = streamText({
+                model: this.model,
                 messages,
                 // 设置请求超时
                 experimental_telemetry: {
                     isEnabled: false, // 禁用遥测以减少开销
                 },
+                // 禁用 Qwen 思考模式 - 使用 openai 命名空间因为这是通过 OpenAI 兼容接口调用
+                providerOptions: {
+                    openai: {
+                        enable_thinking: false
+                    }
+                }
             })
 
             // 状态

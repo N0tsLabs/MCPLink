@@ -355,12 +355,23 @@ export class Agent {
             callbacks?.onIterationStart?.(iteration)
 
             // 调用 AI
-            const response = await generateText({
+            const generateOptions: Parameters<typeof generateText>[0] = {
                 model: this.model,
                 messages,
                 tools: Object.keys(tools).length > 0 ? tools : undefined,
                 maxSteps: 1, // 每次只执行一步，方便我们控制流程
-            })
+            }
+
+            // 如果启用了手动思考阶段，禁用模型内置的 thinking 模式，避免重复
+            if (this.enableThinkingPhase) {
+                generateOptions.providerOptions = {
+                    openai: {
+                        enable_thinking: false
+                    }
+                }
+            }
+
+            const response = await generateText(generateOptions)
 
             // 累计 token 使用
             if (response.usage) {
@@ -610,12 +621,21 @@ ${this.thinkingPhasePrompt}`
                 ]
 
                 // 思考阶段调用（不带工具，强制输出文本，可配置 token 限制）
-                const thinkingStream = streamText({
+                const thinkingOptions: Parameters<typeof streamText>[0] = {
                     model: this.model,
                     messages: thinkingMessages,
                     maxTokens: this.thinkingMaxTokens,
                     // 不传 tools，强制 AI 输出文本思考
-                })
+                }
+
+                // 思考阶段禁用模型内置 thinking，因为我们已经在外层提供了思考逻辑
+                thinkingOptions.providerOptions = {
+                    openai: {
+                        enable_thinking: false
+                    }
+                }
+
+                const thinkingStream = streamText(thinkingOptions)
 
                 let thinkingContent = ''
                 for await (const chunk of thinkingStream.fullStream) {
@@ -646,12 +666,23 @@ ${this.thinkingPhasePrompt}`
 
             // ============ 执行阶段 ============
             // 使用 streamText 进行流式调用
-            const stream = streamText({
+            const streamOptions: Parameters<typeof streamText>[0] = {
                 model: this.model,
                 messages,
                 tools: hasTools ? tools : undefined,
                 maxSteps: 1,
-            })
+            }
+
+            // 如果启用了手动思考阶段，在执行阶段禁用模型内置的 thinking，避免重复
+            if (this.enableThinkingPhase) {
+                streamOptions.providerOptions = {
+                    openai: {
+                        enable_thinking: false
+                    }
+                }
+            }
+
+            const stream = streamText(streamOptions)
 
             // 收集流式结果
             let fullText = ''
