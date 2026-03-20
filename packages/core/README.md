@@ -1,22 +1,28 @@
 # @n0ts123/mcplink-core
 
-MCPLink 核心 SDK - 极简 MCP + AI HTTP 桥接，让用户自己掌控 AI 交互流程。
+更方便的在代码里集成 MCP 工具直接让 AI 使用。
 
 [![npm version](https://img.shields.io/npm/v/@n0ts123/mcplink-core.svg)](https://www.npmjs.com/package/@n0ts123/mcplink-core)
 [![license](https://img.shields.io/npm/l/@n0ts123/mcplink-core.svg)](https://github.com/n0tssss/MCPLink/blob/master/LICENSE)
-[![GitHub](https://img.shields.io/badge/GitHub-n0tssss%2FMCPLink-blue)](https://github.com/n0tssss/MCPLink)
 
-## ✨ 特性
+## 这是什么
 
-- 🚀 **极简设计** - 几行代码发起 AI 对话，用户自己处理响应
-- 🔄 **原生流式** - 基于 axios SSE，真正的实时流式响应
-- 🤖 **多模型支持** - OpenAI、Claude、Gemini、DeepSeek、Qwen、Llama 等
-- 🛠️ **MCP 协议** - 支持 stdio、SSE、Streamable HTTP 三种连接方式
-- 📦 **标准事件** - 提供可选的标准事件流转换层
-- 🔧 **完全自定义** - 支持任意参数（如 enable_thinking）透传给 AI
-- 💪 **TypeScript** - 完整的类型支持
+用代码让 AI 调用 [MCP](https://modelcontextprotocol.io/) 工具，自动完成多步任务。
 
-## 📦 安装
+```
+你："帮我查一下最近订单"
+AI：调用 get_orders 工具 → 收到结果 → "您有3个订单..."
+```
+
+**特点**：流式响应、支持任意 AI 参数、你自己掌控消息历史。
+
+## 安装
+
+```bash
+npm install @n0ts123/mcplink-core
+```
+
+## 用法
 
 ```bash
 # npm
