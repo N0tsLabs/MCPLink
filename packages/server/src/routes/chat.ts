@@ -43,11 +43,11 @@ export async function chatRoutes(app: FastifyInstance) {
         // 必须有消息或图片
         const hasMessage = message && message.trim().length > 0
         const hasImages = images && images.length > 0
-        
+
         if (!hasMessage && !hasImages) {
             return reply.status(400).send({ error: 'Message or images is required' })
         }
-        
+
         console.log(`[Chat] 📥 收到请求: 消息=${hasMessage ? '有' : '无'}, 图片数量=${images?.length || 0}`)
 
         // 获取历史消息
@@ -89,25 +89,22 @@ export async function chatRoutes(app: FastifyInstance) {
                 for await (const event of chatStream) {
                     switch (event.type) {
                         case 'text_delta':
-                            content += event.data.content || ''
+                            content += event.content || ''
                             break
                         case 'tool_call_start':
                             toolCalls.push({
-                                name: event.data.toolName || '',
-                                arguments: event.data.toolArgs || {},
+                                name: event.toolName || '',
+                                arguments: event.toolArgs || {},
                                 result: undefined,
                                 duration: 0,
                                 status: 'pending',
                             })
                             break
-                        case 'tool_result':
-                            const tool = toolCalls.find((t) => t.name === event.data.toolName && t.status === 'pending')
-                            if (tool) {
-                                tool.result = event.data.toolResult
-                                tool.duration = event.data.duration || 0
-                                tool.status = event.data.isError ? 'error' : 'success'
-                            }
+                        case 'complete':
+                            // 完成
                             break
+                        case 'error':
+                            throw event.error
                     }
                 }
 
@@ -174,20 +171,83 @@ export async function chatRoutes(app: FastifyInstance) {
             let eventCount = 0
             for await (const event of chatStream) {
                 eventCount++
-                // 详细日志（text_delta 太多，只记录计数）
-                if (event.type !== 'text_delta' && event.type !== 'thinking_delta') {
-                    let extraInfo = ''
-                    if (event.type === 'tool_call_start' || event.type === 'tool_result') {
-                        extraInfo = `(${event.data.toolName}, id: ${event.data.toolCallId})`
-                    }
-                    console.log(`[Chat] 📤 发送事件 #${eventCount}: ${event.type}`, extraInfo)
+
+                // 详细日志
+                if (event.type === 'tool_call_start') {
+                    console.log(`[Chat] 📤 发送事件 #${eventCount}: ${event.type} (${event.toolName})`)
+                } else if (event.type !== 'text_delta') {
+                    console.log(`[Chat] 📤 发送事件 #${eventCount}: ${event.type}`)
                 }
-                
-                // 如果是错误事件，提取错误消息
-                if (event.type === 'error' && event.data.error instanceof Error) {
-                    sendEvent(event.type, { error: event.data.error.message })
-                } else {
-                sendEvent(event.type, event.data)
+
+                // 发送事件（标准事件流）
+                switch (event.type) {
+                    case 'text_start':
+                        sendEvent('text_start', {})
+                        break
+                    case 'text_delta':
+                        sendEvent('text_delta', { content: event.content })
+                        break
+                    case 'text_end':
+                        sendEvent('text_end', {})
+                        break
+                    case 'thinking_start':
+                        sendEvent('thinking_start', {})
+                        break
+                    case 'thinking_delta':
+                        sendEvent('thinking_delta', { content: event.content })
+                        break
+                    case 'thinking_end':
+                        sendEvent('thinking_end', {})
+                        break
+                    case 'tool_call_start':
+                        sendEvent('tool_call_start', {
+                            toolName: event.toolName,
+                            toolCallId: event.toolCallId,
+                            toolArgs: event.toolArgs,
+                        })
+                        break
+                    case 'tool_call_delta':
+                        sendEvent('tool_call_delta', {
+                            toolCallId: event.toolCallId,
+                            argsTextDelta: event.argsTextDelta,
+                        })
+                        break
+                    case 'tool_call_end':
+                        sendEvent('tool_call_end', { toolCallId: event.toolCallId })
+                        break
+                    case 'tool_executing':
+                        sendEvent('tool_executing', {
+                            toolCallId: event.toolCallId,
+                            toolName: event.toolName,
+                        })
+                        break
+                    case 'tool_result':
+                        sendEvent('tool_result', {
+                            toolName: event.toolName,
+                            toolCallId: event.toolCallId,
+                            toolResult: event.toolResult,
+                            duration: event.duration,
+                            isError: event.isError,
+                        })
+                        break
+                    case 'iteration_start':
+                        sendEvent('iteration_start', {
+                            iteration: event.iteration,
+                            maxIterations: event.maxIterations,
+                        })
+                        break
+                    case 'iteration_end':
+                        sendEvent('iteration_end', { iteration: event.iteration })
+                        break
+                    case 'complete':
+                        sendEvent('complete', {
+                            totalIterations: event.totalIterations,
+                            totalDuration: event.totalDuration,
+                        })
+                        break
+                    case 'error':
+                        sendEvent('error', { error: event.error.message })
+                        break
                 }
             }
 

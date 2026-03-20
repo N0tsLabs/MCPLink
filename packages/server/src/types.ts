@@ -1,4 +1,4 @@
-import type { MCPServerConfig } from '@mcplink/core'
+import type { MCPServerConfig } from '@n0ts123/mcplink-core'
 
 /** 模型配置（简化版 - 统一使用代理 URL） */
 export interface ModelConfig {
@@ -13,13 +13,21 @@ export interface ModelConfig {
     apiKey: string
     /** 是否启用 */
     enabled: boolean
+    /** 温度（可选） */
+    temperature?: number
+    /** 最大 tokens（可选） */
+    maxTokens?: number
+    /** 是否启用思考模式（可选） */
+    enableThinking?: boolean
+    /** 额外参数（任意自定义参数会原封不动传给 AI） */
+    extraParams?: Record<string, unknown>
 }
 
 /** MCP 服务器配置（带 ID） */
 export interface MCPServerConfigWithId {
     id: string
     name: string
-    type: 'stdio' | 'sse'
+    type: 'stdio' | 'sse' | 'streamable-http'
     command?: string
     args?: string[]
     env?: Record<string, string>

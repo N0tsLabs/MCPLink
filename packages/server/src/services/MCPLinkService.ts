@@ -1,6 +1,4 @@
-import { MCPLink, type MCPServerConfig, type MCPLinkEvent } from '@mcplink/core'
-import { createOpenAI } from '@ai-sdk/openai'
-import { generateText, type LanguageModel } from 'ai'
+import { MCPLink, type MCPServerConfig, type AIStreamEvent, type Message, type ChatResult, toStandardStream, type StandardStreamEvent } from '@n0ts123/mcplink-core'
 import { configService } from './ConfigService.js'
 import type { ModelConfig, MCPServerConfigWithId } from '../types.js'
 
@@ -15,24 +13,29 @@ export class MCPLinkService {
     private isReinitializing = false
 
     /**
-     * 根据模型配置创建 LanguageModel
-     * 统一使用 OpenAI 兼容接口，通过 baseURL 支持各种代理
+     * 将模型配置转换为 AIRequestConfig
      */
-    private createModel(config: ModelConfig): LanguageModel {
-        const provider = createOpenAI({
+    private createAIConfig(config: ModelConfig): { baseURL: string; apiKey: string; model: string; [key: string]: unknown } {
+        return {
             baseURL: config.baseURL,
             apiKey: config.apiKey,
-        })
-        return provider(config.model)
+            model: config.model,
+            // 可以传递额外参数
+            temperature: config.temperature,
+            max_tokens: config.maxTokens,
+            enable_thinking: config.enableThinking ?? false,  // 默认关闭思考
+            // 其他自定义参数
+            ...config.extraParams,
+        }
     }
 
     /**
      * 将配置转换为 MCPServerConfig
      */
     private convertMCPServerConfig(config: MCPServerConfigWithId): MCPServerConfig {
-        if (config.type === 'sse') {
+        if (config.type === 'streamable-http' || config.url) {
             return {
-                type: 'sse',
+                type: 'streamable-http',
                 url: config.url!,
                 headers: config.headers,
             }
@@ -88,8 +91,8 @@ export class MCPLinkService {
         // 获取系统设置
         const settings = await configService.getSettings()
 
-        // 创建 MCPLink 实例
-        const model = this.createModel(modelConfig)
+        // 创建 AI 配置
+        const aiConfig = this.createAIConfig(modelConfig)
 
         const mcpServerConfigs: Record<string, MCPServerConfig> = {}
         for (const server of enabledServers) {
@@ -102,16 +105,10 @@ export class MCPLinkService {
         }
 
         this.mcpLink = new MCPLink({
-            model,
-            modelName: modelConfig.model, // 传递实际的模型名称用于检测
+            ai: aiConfig,
+            adapter: 'openai',
             mcpServers: mcpServerConfigs,
-            systemPrompt: settings.systemPrompt,
             maxIterations: settings.maxIterations,
-            usePromptBasedTools: settings.usePromptBasedTools,
-            enableThinkingPhase: settings.enableThinkingPhase,
-            thinkingPhasePrompt: settings.thinkingPhasePrompt,
-            thinkingMaxTokens: settings.thinkingMaxTokens,
-            immediateResultMatchers: settings.immediateResultMatchers,
         })
 
         this.currentModelId = modelConfig.id
@@ -131,13 +128,13 @@ export class MCPLinkService {
     }
 
     /**
-     * 发起对话（流式）
+     * 发起对话（流式 - 标准事件流）
      * @param message 用户消息
      * @param modelId 模型 ID
      * @param options 可选参数
      * @param options.tools 允许使用的工具名称列表
      * @param options.history 历史消息列表
-     * @param options.images 图片数组（base64 格式）
+     * @param options.images 图片数组（base64 格式）- 暂不支持，需要手动构建消息
      */
     async *chat(
         message: string,
@@ -147,47 +144,110 @@ export class MCPLinkService {
             history?: Array<{ role: 'user' | 'assistant'; content: string }>
             images?: string[]
         }
-    ): AsyncGenerator<MCPLinkEvent> {
+    ): AsyncGenerator<StandardStreamEvent> {
         // 如果指定了不同的模型，重新初始化
         if (modelId && modelId !== this.currentModelId) {
             await this.initialize(modelId)
         }
 
         const mcpLink = await this.ensureInitialized()
-        
-        // 如果有图片，构建多模态消息
-        if (options?.images && options.images.length > 0) {
-            const multimodalMessage = this.buildMultimodalMessage(message, options.images)
-            yield* mcpLink.chatStream(multimodalMessage, {
-                allowedTools: options?.tools,
-                history: options?.history,
-            })
-        } else {
-            yield* mcpLink.chatStream(message, {
-                allowedTools: options?.tools,
-                history: options?.history,
-            })
+
+        // 构建消息历史
+        const settings = await configService.getSettings()
+        const messages: Message[] = []
+
+        // 添加系统提示词
+        if (settings.systemPrompt) {
+            messages.push({ role: 'system', content: settings.systemPrompt })
         }
+
+        // 添加历史消息
+        if (options?.history) {
+            for (const msg of options.history) {
+                messages.push({ role: msg.role, content: msg.content })
+            }
+        }
+
+        // 添加当前用户消息
+        messages.push({ role: 'user', content: message })
+
+        // 获取 MCP 工具
+        const tools = await mcpLink.getTools()
+
+        // 创建底层事件流生成器
+        async function* rawEventStream(): AsyncGenerator<AIStreamEvent> {
+            // 使用队列来收集流式事件
+            const eventQueue: AIStreamEvent[] = []
+            let streamDone = false
+            let streamError: Error | null = null
+
+            // 启动流式请求（在后台收集事件）
+            const streamPromise = mcpLink.chatStream(
+                messages,
+                (event) => {
+                    eventQueue.push(event)
+                    return true
+                }
+            ).then(
+                result => {
+                    streamDone = true
+                    return result
+                },
+                error => {
+                    streamError = error
+                    streamDone = true
+                    throw error
+                }
+            )
+
+            // 消费队列中的事件
+            while (!streamDone || eventQueue.length > 0) {
+                // 如果有事件，立即 yield
+                if (eventQueue.length > 0) {
+                    const event = eventQueue.shift()!
+                    yield event
+                } else {
+                    // 等待新事件或流结束
+                    await new Promise(resolve => setTimeout(resolve, 10))
+                }
+            }
+
+            // 等待流完成（获取最终结果，但不需要再 yield，因为事件已经处理过了）
+            try {
+                await streamPromise
+            } catch (error) {
+                if (streamError) {
+                    yield { type: 'error', error: streamError }
+                }
+            }
+
+            yield { type: 'done' }
+        }
+
+        // 使用标准事件流转换
+        yield* toStandardStream(rawEventStream(), {
+            maxIterations: settings.maxIterations ?? 10,
+            executeTool: async (name: string, args: Record<string, unknown>) => {
+                return await mcpLink.callTool(name, args)
+            },
+        })
     }
 
     /**
-     * 构建多模态消息
-     * 将文本和图片组合成多模态消息格式
+     * 发起对话（新版流式）
+     * 返回完整的结果和消息历史
      */
-    private buildMultimodalMessage(text: string, images: string[]): Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> {
-        const content: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = []
-        
-        // 添加图片
-        for (const imageData of images) {
-            content.push({ type: 'image', image: imageData })
-        }
-        
-        // 添加文本（如果有）
-        if (text) {
-            content.push({ type: 'text', text })
-        }
-        
-        return content
+    async chatStream(
+        messages: Message[],
+        onStream?: (event: AIStreamEvent) => boolean | void
+    ): Promise<ChatResult> {
+        const mcpLink = await this.ensureInitialized()
+
+        return mcpLink.chat({
+            messages,
+            stream: true,
+            onStream,
+        })
     }
 
     /**
@@ -240,15 +300,13 @@ export class MCPLinkService {
             await this.mcpLink.close()
         }
 
-        // 创建一个临时的占位模型（不会实际使用）
-        const placeholderProvider = createOpenAI({
-            baseURL: 'http://localhost',
-            apiKey: 'placeholder',
-        })
-
+        // 创建一个临时的占位 AI 配置（不会实际使用）
         this.mcpLink = new MCPLink({
-            model: placeholderProvider('placeholder'),
-            modelName: 'placeholder',
+            ai: {
+                baseURL: 'http://localhost',
+                apiKey: 'placeholder',
+                model: 'placeholder',
+            },
             mcpServers: mcpServerConfigs,
         })
 
@@ -323,7 +381,6 @@ export class MCPLinkService {
         const settings = await configService.getSettings()
         const defaultModel = enabledModels.find((m) => m.id === settings.defaultModelId)
         const modelConfig = defaultModel || enabledModels[0]
-        const model = this.createModel(modelConfig)
 
         const prompt = assistantMessage
             ? `根据以下对话内容，生成一个简短的中文标题（5-15个字，不要使用引号）：
@@ -339,18 +396,34 @@ ${userMessage}
 标题：`
 
         try {
-            const result = await generateText({
-                model,
-                prompt,
-                maxTokens: 50,
-            })
+            // 直接使用 axios 发起请求
+            const axios = (await import('axios')).default
+
+            const response = await axios.post(
+                `${modelConfig.baseURL}/chat/completions`,
+                {
+                    model: modelConfig.model,
+                    messages: [
+                        { role: 'user', content: prompt },
+                    ],
+                    max_tokens: 50,
+                    temperature: 0.7,
+                    enable_thinking: false,
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${modelConfig.apiKey}`,
+                    },
+                }
+            )
 
             // 清理标题（移除引号、换行等）
-            const title = result.text
-                .replace(/["""'']/g, '')
-                .replace(/\n/g, '')
-                .trim()
-                .slice(0, 30) // 限制长度
+            const title = response.data.choices[0]?.message?.content
+                ?.replace(/["""'']/g, '')
+                ?.replace(/\n/g, '')
+                ?.trim()
+                ?.slice(0, 30) // 限制长度
 
             return title || '新对话'
         } catch (error) {

@@ -4,13 +4,20 @@ export { MCPLink } from './MCPLink.js'
 // 管理器
 export { MCPManager } from './MCPManager.js'
 
-// Agent
-export { Agent, DEFAULT_SYSTEM_PROMPT, DEFAULT_THINKING_PHASE_PROMPT } from './Agent.js'
-export { PromptBasedAgent } from './PromptBasedAgent.js'
+// HTTP 客户端
+export { HttpClient } from './http-client.js'
 
-// AI SDK 重新导出 - 方便用户一站式导入
-export { createOpenAI } from '@ai-sdk/openai'
-export { createAnthropic } from '@ai-sdk/anthropic'
+// 适配器
+export { OpenAIAdapter, openaiAdapter } from './adapters/openai.js'
+
+// 标准事件流
+export {
+  toStandardStream,
+  collectStandardResponse,
+  type StandardStreamEvent,
+  type StandardStreamOptions,
+  type StandardResponse,
+} from './standard-stream.js'
 
 // 类型导出
 export type {
@@ -19,35 +26,28 @@ export type {
     MCPServerConfig,
     MCPServerConfigStdio,
     MCPServerConfigStreamableHTTP,
-    ImmediateResultMatcher,
+
+    // AI 配置
+    AIRequestConfig,
+    AIAdapter,
+    AIAdapterType,
 
     // 消息类型
     Message,
     MessageRole,
     ToolCall,
     ToolResult,
+    ToolDefinition,
 
-    // 多模态消息类型
-    UserMessage,
-    MessageContentPart,
-    TextPart,
-    ImagePart,
-    FilePart,
+    // 流式事件
+    AIStreamEvent,
+    AIResponseHandler,
 
-    // 事件类型
-    MCPLinkEvent,
-    MCPLinkEventData,
-
-    // 回调类型
-    ChatCallbacks,
-
-    // 返回类型
+    // 对话选项和结果
+    ChatOptions,
     ChatResult,
 
     // MCP 类型
     MCPTool,
     MCPServerStatus,
 } from './types.js'
-
-// 事件枚举
-export { MCPLinkEventType } from './types.js'

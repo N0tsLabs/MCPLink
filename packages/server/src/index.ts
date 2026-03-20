@@ -48,6 +48,15 @@ async function main() {
         }
     })
 
+    // 健康检查端点
+    app.get('/api/health', async () => {
+        return {
+            status: 'ok',
+            timestamp: Date.now(),
+            version: '0.0.1',
+        }
+    })
+
     // 启动服务器
     try {
         await app.listen({ port: PORT, host: HOST })

@@ -1559,7 +1559,7 @@ async function sendMessage() {
                         tool.result = event.data.toolResult
                         tool.duration = event.data.duration || 0
                         tool.status = event.data.isError ? 'error' : 'success'
-                        console.log('[SSE] Tool status updated to:', tool.status, 'result length:', (event.data.toolResult || '').length)
+                        console.log('[SSE] Tool status updated to:', tool.status, 'result length:', String(event.data.toolResult || '').length)
                         forceUpdate()
                     } else {
                         console.error('[SSE] ❌ Tool not found for result:', event.data.toolName, resultToolCallId)

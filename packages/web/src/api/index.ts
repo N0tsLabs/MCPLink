@@ -263,9 +263,13 @@ class Api {
                                     type: currentEvent as SSEEvent['type'],
                                     data,
                                 })
-                            } catch {
-                                // 忽略解析错误
+                            } catch (e) {
+                                // JSON 解析错误，忽略
+                                console.warn('[SSE] Failed to parse data:', line.slice(6), e)
                             }
+                            // 注意：这里不移除 currentEvent，因为可能有多个 data: 行
+                        } else if (line === '' || line === '\r') {
+                            // 空行表示事件结束，重置 currentEvent
                             currentEvent = null
                         }
                     }
