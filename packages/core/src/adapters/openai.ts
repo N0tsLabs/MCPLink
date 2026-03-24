@@ -8,6 +8,39 @@ import type { AIAdapter, AIRequestConfig, AIResponse, AIStreamEvent, Message, To
 export class OpenAIAdapter implements AIAdapter {
   name = 'openai'
 
+  // 用于累积 tool_call 参数的状态
+  private pendingToolCall: { id: string; name: string; arguments: string } | null = null
+
+  /**
+   * 检查 tool_call 参数是否完整（可以解析为 JSON）
+   */
+  private isToolCallComplete(tc: { arguments: string }): boolean {
+    if (!tc.arguments) return false
+    try {
+      JSON.parse(tc.arguments)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * 返回并清空 pending tool_call
+   */
+  private flushPendingToolCall(): AIStreamEvent | null {
+    if (!this.pendingToolCall) return null
+    const tc = this.pendingToolCall
+    this.pendingToolCall = null
+    return {
+      type: 'tool_call',
+      toolCall: {
+        id: tc.id,
+        name: tc.name,
+        arguments: tc.arguments ? JSON.parse(tc.arguments) : {},
+      },
+    }
+  }
+
   /**
    * 构建请求体
    * 完全开放：除必要字段外，其他参数原封不动传递
@@ -132,19 +165,33 @@ export class OpenAIAdapter implements AIAdapter {
         return { type: 'text', content: delta.content }
       }
 
-      // 工具调用（简化处理，假设一次只返回一个完整 tool_call）
+      // 工具调用（支持参数累积，处理分片的 tool_call）
       if (delta?.tool_calls) {
         const tc = delta.tool_calls[0]
-        if (tc.id && tc.function?.name) {
-          return {
-            type: 'tool_call',
-            toolCall: {
-              id: tc.id,
-              name: tc.function.name,
-              arguments: tc.function.arguments ? JSON.parse(tc.function.arguments) : {},
-            },
+        // 新的 tool_call（没有 pending 或 id 不同）
+        if (tc.id && tc.function?.name && (!this.pendingToolCall || this.pendingToolCall.id !== tc.id)) {
+          const result = this.flushPendingToolCall()
+          this.pendingToolCall = {
+            id: tc.id,
+            name: tc.function.name,
+            arguments: tc.function.arguments || ''
+          }
+          if (this.isToolCallComplete(this.pendingToolCall)) {
+            return this.flushPendingToolCall()
+          }
+          return result
+        }
+        // 累积参数（同一个 tool_call 的后续 delta）
+        if (this.pendingToolCall && tc.function?.arguments) {
+          this.pendingToolCall.arguments += tc.function.arguments
+          if (this.isToolCallComplete(this.pendingToolCall)) {
+            return this.flushPendingToolCall()
           }
         }
+      }
+      // finish_reason 且有 pendingToolCall，强制完成
+      if (choice?.finish_reason && this.pendingToolCall) {
+        return this.flushPendingToolCall()
       }
 
       // 完成
